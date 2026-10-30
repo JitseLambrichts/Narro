@@ -1,0 +1,72 @@
+:root {
+  --bg: #f6f6f7;
+  --win: #ffffff;
+  --line: #e6e6ea;
+  --line2: #d6d6dc;
+  --text: #17171a;
+  --muted: #5c5c66;
+  --faint: #9a9aa5;
+  --accent: #5b5bd6;
+  --accent-soft: rgba(91, 91, 214, 0.1);
+  --accent-line: rgba(91, 91, 214, 0.45);
+  --green: #1f9d55;
+  --green-soft: rgba(31, 157, 85, 0.12);
+  --amber: #d97706;
+  --amber-soft: rgba(217, 119, 6, 0.12);
+  --red: #d93d3d;
+  --red-soft: rgba(217, 61, 61, 0.12);
+  --branch: #8250df;
+  --branch-soft: rgba(130, 80, 223, 0.12);
+
+  --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0b0d;
+    --win: #141417;
+    --line: #26262c;
+    --line2: #34343c;
+    --text: #ececf0;
+    --muted: #a3a3ad;
+    --faint: #6c6c76;
+    --accent: #8d8dff;
+    --accent-soft: rgba(141, 141, 255, 0.12);
+    --accent-line: rgba(141, 141, 255, 0.5);
+    --green: #3fbf74;
+    --green-soft: rgba(63, 191, 116, 0.14);
+    --amber: #f0a33c;
+    --amber-soft: rgba(240, 163, 60, 0.14);
+    --red: #f06262;
+    --red-soft: rgba(240, 98, 98, 0.14);
+    --branch: #a57cf0;
+    --branch-soft: rgba(165, 124, 240, 0.14);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.6 -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
