@@ -1,0 +1,357 @@
+/* Live cards. Colours carry meaning: green added/done, amber changed, red removed/failed, accent busy. */
+.card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--win);
+  overflow: hidden;
+}
+
+.card[data-status='working'] {
+  border-color: var(--accent-line);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  min-height: 38px;
+}
+
+.card-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-body {
+  border-top: 1px solid var(--line);
+}
+
+/* A collapsed card is one line: ● title · Show */
+.card.pill {
+  display: inline-flex;
+  align-self: flex-start;
+  max-width: 100%;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.card.pill .card-head {
+  padding: 3px 12px;
+  min-height: 0;
+  color: var(--muted);
+}
+
+.card.pill .card-title {
+  flex: none;
+  max-width: 480px;
+  font-weight: 400;
+}
+
+.card.pill .link-button::before {
+  content: '·';
+  margin-right: 6px;
+  color: var(--faint);
+}
+
+.link-button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.dot.done,
+.dot.file-created {
+  background: var(--green);
+}
+
+.dot.file-modified {
+  background: var(--amber);
+}
+
+.dot.failed,
+.dot.file-deleted {
+  background: var(--red);
+}
+
+.dot.working {
+  background: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.8);
+  }
+}
+
+.stats {
+  display: inline-flex;
+  gap: 6px;
+  font: 12px/1 var(--mono);
+}
+
+.stat-add {
+  color: var(--green);
+}
+
+.stat-del {
+  color: var(--red);
+}
+
+/* Diffs */
+.diff {
+  font: 12px/1.55 var(--mono);
+  padding: 6px 0;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.diff-line {
+  padding: 0 12px 0 22px;
+  position: relative;
+  white-space: pre;
+  animation: line-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+.diff-line[data-kind='add'] {
+  background: var(--green-soft);
+}
+
+.diff-line[data-kind='add']::before {
+  content: '+';
+  position: absolute;
+  left: 8px;
+  color: var(--green);
+}
+
+.diff-line[data-kind='del'] {
+  background: var(--red-soft);
+}
+
+.diff-line[data-kind='del']::before {
+  content: '−';
+  position: absolute;
+  left: 8px;
+  color: var(--red);
+}
+
+.diff-line[data-kind='gap'] {
+  color: var(--faint);
+  font-family: inherit;
+  font-style: italic;
+}
+
+.diff-more,
+.card-note {
+  margin: 0;
+  padding: 8px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@keyframes line-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* Group of files */
+.file-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.file-row-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.file-row-button:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.file-row-button:disabled {
+  cursor: default;
+}
+
+.file-row-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 12px/1.6 var(--mono);
+}
+
+.file-row .diff {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Commands */
+.command {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.command-line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.command-text {
+  flex: 1;
+  min-width: 0;
+  font: 12px/1.5 var(--mono);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.command-time {
+  flex: none;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.command-files {
+  margin: 0;
+  padding-left: 18px;
+  font: 12px/1.6 var(--mono);
+  color: var(--green);
+}
+
+.command-output {
+  margin: 0;
+  font: 12px/1.5 var(--mono);
+  color: var(--faint);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Activity */
+.activity {
+  margin: 0;
+  padding: 6px 12px 8px 30px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Task checklist */
+.checklist {
+  list-style: none;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checklist-item[data-status='completed'] {
+  color: var(--muted);
+}
+
+.checklist-item .dot {
+  margin: 0 3px;
+}
+
+.circle {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line2);
+}
+
+.check {
+  flex: none;
+  color: var(--green);
+}
+
+/* Permission */
+.permission {
+  border: 1px solid var(--accent-line);
+  border-radius: 12px;
+  background: var(--accent-soft);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.permission[data-decision='denied'],
+.permission[data-decision='allowed'] {
+  border-color: var(--line);
+  background: var(--win);
+}
+
+.permission-title {
+  font-weight: 600;
+}
+
+.permission-detail {
+  font: 12px/1.5 var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.permission-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.permission-decision {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diff-line,
+  .dot.working {
+    animation: none;
+  }
+}

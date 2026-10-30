@@ -6,6 +6,9 @@ import { t } from '../i18n/en'
 import { isNearBottom } from './scroll'
 import { UserBubble } from './UserBubble'
 import { AgentText } from './AgentText'
+import { LiveCard } from '../cards/LiveCard'
+import { PermissionCard } from '../cards/PermissionCard'
+import { TaskChecklist } from '../cards/TaskChecklist'
 
 interface Props {
   state: ConversationState
@@ -16,10 +19,29 @@ interface Props {
 const enter = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } }
 const transition = { layout: spring, default: fade }
 
-function Item(p: { turn: Turn; item: TurnItem }): React.JSX.Element | null {
-  const { item } = p
-  if (item.kind === 'text') return <AgentText text={item.text} />
-  return null
+function Item(p: { turn: Turn; item: TurnItem } & Omit<Props, 'state'>): React.JSX.Element {
+  const { turn, item } = p
+  switch (item.kind) {
+    case 'text':
+      return <AgentText text={item.text} />
+    case 'card':
+      return (
+        <LiveCard
+          card={item.card}
+          collapsed={turn.collapsed}
+          onToggle={() => p.onToggleCard(turn.id, item.card.id)}
+        />
+      )
+    case 'permission':
+      return (
+        <PermissionCard
+          title={item.title}
+          detail={item.detail}
+          decision={item.decision}
+          onDecide={(allow) => p.onDecide(item.requestId, allow)}
+        />
+      )
+  }
 }
 
 function TurnView(p: { turn: Turn } & Omit<Props, 'state'>): React.JSX.Element {
@@ -28,10 +50,11 @@ function TurnView(p: { turn: Turn } & Omit<Props, 'state'>): React.JSX.Element {
   return (
     <div className="turn" data-testid="turn">
       <UserBubble text={turn.userText} />
+      <TaskChecklist tasks={turn.tasks} />
       <AnimatePresence initial={false}>
         {turn.items.map((item) => (
           <motion.div key={item.id} layout="position" {...enter} transition={transition}>
-            <Item turn={turn} item={item} />
+            <Item turn={turn} item={item} onToggleCard={p.onToggleCard} onDecide={p.onDecide} />
           </motion.div>
         ))}
         {turn.status === 'failed' && turn.error && (
