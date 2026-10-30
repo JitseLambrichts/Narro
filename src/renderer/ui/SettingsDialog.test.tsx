@@ -5,8 +5,9 @@ import userEvent from '@testing-library/user-event'
 import type { AccountView } from '../../shared/ipc'
 import { SettingsDialog } from './SettingsDialog'
 
-const signedOut: AccountView = { signedIn: false, email: null }
-const signedIn: AccountView = { signedIn: true, email: 'me@example.com' }
+const signedOut: AccountView = { signedIn: false, email: null, method: null }
+const signedIn: AccountView = { signedIn: true, email: 'me@example.com', method: 'claude' }
+const ownKey: AccountView = { signedIn: true, email: null, method: 'api-key' }
 
 type SignIn = Mock<() => Promise<AccountView>>
 
@@ -16,7 +17,6 @@ function setup(
 ): {
   onSignIn: SignIn
   onModelChange: Mock
-  onSubmitCode: Mock
   onCancelSignIn: Mock
   onSignOut: Mock
   onClose: Mock
@@ -27,7 +27,6 @@ function setup(
     account,
     onModelChange: vi.fn(async () => {}),
     onSignIn,
-    onSubmitCode: vi.fn(async () => {}),
     onCancelSignIn: vi.fn(),
     onSignOut: vi.fn(async () => {}),
     onClose: vi.fn()
@@ -37,25 +36,24 @@ function setup(
 }
 
 describe('SettingsDialog', () => {
-  it('asks to sign in with Claude and never for an API key', () => {
+  it('offers to sign in with Claude and has no field for a key', () => {
     setup(signedOut)
     expect(screen.getByText('Not signed in')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Sign in with Claude' })).toBeVisible()
-    expect(screen.queryByLabelText(/API key/i)).toBeNull()
+    expect(screen.queryByRole('textbox')).toBeNull()
   })
 
-  it('while signing in, waits for the browser and accepts a pasted code', async () => {
+  it('while signing in, only waits for the browser: nothing to type into Narro', async () => {
     let finish!: (v: AccountView) => void
-    const { user, onSignIn, onSubmitCode } = setup(
+    const { user, onSignIn } = setup(
       signedOut,
       vi.fn(() => new Promise<AccountView>((r) => (finish = r)))
     )
     await user.click(screen.getByRole('button', { name: 'Sign in with Claude' }))
     expect(onSignIn).toHaveBeenCalled()
     expect(screen.getByText('Finish signing in in your browser.')).toBeVisible()
-    await user.type(screen.getByLabelText('Code from the browser'), ' abc ')
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
-    expect(onSubmitCode).toHaveBeenCalledWith('abc')
+    expect(screen.getByText(/claude auth login/)).toBeVisible()
+    expect(screen.queryByRole('textbox')).toBeNull()
     finish(signedIn)
     expect(await screen.findByRole('button', { name: 'Sign in with Claude' })).toBeVisible()
     expect(screen.queryByRole('alert')).toBeNull()
@@ -90,6 +88,13 @@ describe('SettingsDialog', () => {
     expect(screen.queryByRole('button', { name: 'Sign in with Claude' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
     expect(onSignOut).toHaveBeenCalled()
+  })
+
+  it('says when Claude Code uses the user’s own API key', () => {
+    setup(ownKey)
+    expect(screen.getByText('Using your own Anthropic API key')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Sign in with Claude' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull()
   })
 
   it('offers exactly Opus 5.5 and Sonnet 5.5 and saves a new choice right away', async () => {

@@ -3,15 +3,14 @@ import type { AccountView } from '../../shared/ipc'
 
 export interface ClaudeAccount {
   status(): Promise<AccountView>
-  // Opens the browser and resolves once signing in has finished, failed or been cancelled.
+  // Starts Claude Code's own sign-in, which happens entirely in the browser, and resolves
+  // once it has finished, failed or been cancelled.
   signIn(): Promise<AccountView>
-  // For when the browser shows a code instead of returning to the app by itself.
-  submitCode(code: string): void
   cancelSignIn(): void
   signOut(): Promise<AccountView>
 }
 
-const SIGNED_OUT: AccountView = { signedIn: false, email: null }
+const SIGNED_OUT: AccountView = { signedIn: false, email: null, method: null }
 const COMMAND_TIMEOUT_MS = 20_000
 
 // The Claude Code binary that ships with the Agent SDK, so no separate install is needed.
@@ -45,7 +44,8 @@ export function parseAuthStatus(stdout: string): AccountView {
     const account = (j.account ?? j.oauthAccount ?? {}) as Record<string, unknown>
     const email =
       str(j.email) ?? str(j.emailAddress) ?? str(account.email) ?? str(account.emailAddress)
-    return { signedIn: true, email }
+    const method = j.authMethod === 'api_key' || str(j.apiKeySource) ? 'api-key' : 'claude'
+    return { signedIn: true, email, method }
   } catch {
     return SIGNED_OUT
   }
@@ -65,7 +65,8 @@ function run(bin: string, args: string[], env: NodeJS.ProcessEnv): Promise<strin
   })
 }
 
-// Signs in with the Claude account the user already uses for Claude Code (`claude auth`).
+// Reads and starts Claude Code's own sign-in (`claude auth`). Narro never sees a password,
+// code or token: the browser talks to Anthropic and hands the result to Claude Code.
 export function createClaudeAccount(bin: string | null, env: NodeJS.ProcessEnv): ClaudeAccount {
   let login: ChildProcess | null = null
 
@@ -80,14 +81,12 @@ export function createClaudeAccount(bin: string | null, env: NodeJS.ProcessEnv):
       if (!bin) return Promise.resolve(SIGNED_OUT)
       login?.kill()
       return new Promise((resolve) => {
+        // No input: Narro has nothing to pass into the sign-in.
         const child = spawn(bin, ['auth', 'login', '--claudeai'], {
           env,
-          stdio: ['pipe', 'pipe', 'pipe']
+          stdio: ['ignore', 'ignore', 'ignore']
         })
         login = child
-        // Drain the output so the CLI never blocks on a full pipe.
-        child.stdout?.resume()
-        child.stderr?.resume()
         const finish = (): void => {
           if (login === child) login = null
           status().then(resolve)
@@ -95,9 +94,6 @@ export function createClaudeAccount(bin: string | null, env: NodeJS.ProcessEnv):
         child.on('error', finish)
         child.on('close', finish)
       })
-    },
-    submitCode(code) {
-      login?.stdin?.write(code.trim() + '\n')
     },
     cancelSignIn() {
       login?.kill()

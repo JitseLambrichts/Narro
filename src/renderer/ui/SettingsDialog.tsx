@@ -3,14 +3,11 @@ import type { AccountView, SettingsView } from '../../shared/ipc'
 import type { ModelId } from '../../shared/types'
 import { t } from '../i18n/en'
 
-function AccountStatus(p: { account: AccountView | null }): React.JSX.Element {
-  if (!p.account) return <span className="account-status">{t.checkingAccount}</span>
-  if (!p.account.signedIn) return <span className="account-status">{t.notSignedIn}</span>
-  return (
-    <span className="account-status signed-in">
-      {p.account.email ? t.signedInAs(p.account.email) : t.signedIn}
-    </span>
-  )
+function accountText(account: AccountView | null): string {
+  if (!account) return t.checkingAccount
+  if (!account.signedIn) return t.notSignedIn
+  if (account.method === 'api-key') return t.usingApiKey
+  return account.email ? t.signedInAs(account.email) : t.signedIn
 }
 
 export function SettingsDialog(p: {
@@ -18,24 +15,21 @@ export function SettingsDialog(p: {
   account: AccountView | null
   onModelChange(model: ModelId): Promise<void>
   onSignIn(): Promise<AccountView>
-  onSubmitCode(code: string): Promise<void>
   onCancelSignIn(): void
   onSignOut(): Promise<void>
   onClose(): void
 }): React.JSX.Element {
   const [model, setModel] = useState<ModelId>(p.view.model)
   const [signingIn, setSigningIn] = useState(false)
-  const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const cancelled = useRef(false)
   const titleId = useId()
-  const codeId = useId()
   const modelId = useId()
+  const account = p.account
 
   async function signIn(): Promise<void> {
     cancelled.current = false
     setError(null)
-    setCode('')
     setSigningIn(true)
     const result = await p.onSignIn()
     setSigningIn(false)
@@ -56,8 +50,10 @@ export function SettingsDialog(p: {
 
         <div className="field-label">{t.accountLabel}</div>
         <div className="account-row">
-          <AccountStatus account={p.account} />
-          {p.account?.signedIn && (
+          <span className={account?.signedIn ? 'account-status signed-in' : 'account-status'}>
+            {accountText(account)}
+          </span>
+          {account?.signedIn && account.method === 'claude' && (
             <button type="button" className="link-button" onClick={() => void p.onSignOut()}>
               {t.signOut}
             </button>
@@ -65,7 +61,7 @@ export function SettingsDialog(p: {
         </div>
         <p className="field-hint">{t.accountHint}</p>
 
-        {p.account && !p.account.signedIn && !signingIn && (
+        {account && !account.signedIn && !signingIn && (
           <button
             type="button"
             className="button primary account-action"
@@ -76,35 +72,15 @@ export function SettingsDialog(p: {
         )}
 
         {signingIn && (
-          <form
-            className="sign-in"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (code.trim()) void p.onSubmitCode(code.trim())
-            }}
-          >
+          <div className="sign-in">
             <p className="sign-in-wait">{t.finishInBrowser}</p>
-            <label className="field-label" htmlFor={codeId}>
-              {t.codeLabel}
-            </label>
-            <input
-              id={codeId}
-              className="field"
-              autoComplete="off"
-              spellCheck={false}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-            <p className="field-hint">{t.codeHint}</p>
+            <p className="field-hint">{t.browserFallback}</p>
             <div className="sign-in-actions">
               <button type="button" className="button" onClick={cancel}>
                 {t.cancel}
               </button>
-              <button type="submit" className="button primary" disabled={!code.trim()}>
-                {t.continue}
-              </button>
             </div>
-          </form>
+          </div>
         )}
 
         {error && (

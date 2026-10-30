@@ -46,7 +46,7 @@ test('asks to sign in with Claude on first start, without an API key', async () 
   const account = await win.evaluate(() =>
     (window as unknown as { api: RendererApi }).api.getAccount()
   )
-  expect(account).toEqual({ signedIn: true, email: 'test@example.com' })
+  expect(account).toEqual({ signedIn: true, email: 'test@example.com', method: 'claude' })
   await app.close()
 })
 

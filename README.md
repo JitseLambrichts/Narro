@@ -28,13 +28,20 @@ npm install
 npm run dev
 ```
 
-Narro uses your Claude account, the same sign-in as Claude Code, so your Claude plan covers
-the usage and no API key is needed. If you already use Claude Code on this Mac you are signed
-in. Otherwise the app shows **Sign in with Claude** on first start: your browser opens, you sign
-in, and the app picks it up. No terminal window is involved.
+Narro runs the unmodified Claude Code that ships with the Agent SDK, so you don't need to
+install it separately. Claude Code signs in the way you set it up: with your Claude account, or
+with your own API key if you configured one for Claude Code. Narro never sees or stores a
+password, code or token, and it leaves every sign-in method of Claude Code working.
 
-Narro runs the Claude Code that ships with the Agent SDK, so you don't need to install it
-separately. Its conversations are regular Claude Code sessions in `~/.claude/projects`.
+If Claude Code is not signed in yet, the app shows **Sign in with Claude** on first start. That
+starts Claude Code's own sign-in (`claude auth login`): your browser opens and the result goes
+straight to Claude Code. Its conversations are regular Claude Code sessions in
+`~/.claude/projects`.
+
+Using a Claude subscription this way is meant for your own, individual use. Anthropic's
+[terms for Claude Code](https://code.claude.com/docs/en/legal-and-compliance) ask developers who
+build products or services on the Agent SDK to use API keys, so check them before giving Narro
+to anyone else.
 
 ## Checks
 

@@ -6,7 +6,6 @@ export const IPC = {
   saveSettings: 'settings:save',
   getAccount: 'account:get',
   signIn: 'account:sign-in',
-  submitSignInCode: 'account:code',
   cancelSignIn: 'account:cancel',
   signOut: 'account:sign-out',
   send: 'agent:send',
@@ -19,10 +18,12 @@ export interface SettingsView {
   model: ModelId
 }
 
-// The Claude account Claude Code is signed in with; Narro never handles a key itself.
+// How Claude Code is signed in. Narro only reads this; the credentials stay with Claude Code.
 export interface AccountView {
   signedIn: boolean
   email: string | null
+  // 'claude': a Claude account; 'api-key': the user's own API key, set up for Claude Code.
+  method: 'claude' | 'api-key' | null
 }
 
 export interface RendererApi {
@@ -31,7 +32,6 @@ export interface RendererApi {
   saveSettings(patch: { model?: ModelId }): Promise<void>
   getAccount(): Promise<AccountView>
   signIn(): Promise<AccountView>
-  submitSignInCode(code: string): Promise<void>
   cancelSignIn(): Promise<void>
   signOut(): Promise<AccountView>
   send(text: string): Promise<{ turnId: string }>

@@ -88,7 +88,7 @@ function session(
     projectDir: tmp,
     model: 'claude-opus-5-5',
     claudePath: '/opt/claude',
-    env: { PATH: '/usr/bin', ANTHROPIC_API_KEY: 'sk-ant-should-not-pass' },
+    env: { PATH: '/usr/bin', ANTHROPIC_API_KEY: 'sk-ant-own-key' },
     emit: (e) => events.push(e),
     requestPermission,
     now: () => 1000,
@@ -200,14 +200,17 @@ describe('AgentSession', () => {
     expect(calls[0].options.resume).toBeUndefined()
   })
 
-  it('runs on the Claude Code sign-in, never on an API key', async () => {
+  it('leaves the sign-in to Claude Code, with the user’s own setup passed through', async () => {
     const s = session(async function* () {
       yield success
     })
     await s.send('x').done
     const env = calls[0].options.env!
-    expect(env.ANTHROPIC_API_KEY).toBeUndefined()
-    expect(env).toMatchObject({ PATH: '/usr/bin', CLAUDE_CODE_ENABLE_TODO_TOOLS: '1' })
+    expect(env).toMatchObject({
+      PATH: '/usr/bin',
+      ANTHROPIC_API_KEY: 'sk-ant-own-key',
+      CLAUDE_CODE_ENABLE_TODO_TOOLS: '1'
+    })
   })
 
   it('starts again and resumes the conversation when the process has ended', async () => {

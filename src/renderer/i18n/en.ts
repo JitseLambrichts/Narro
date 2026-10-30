@@ -6,17 +6,17 @@ export const t = {
   settingsTitle: 'Settings',
   accountLabel: 'Claude account',
   accountHint:
-    'Narro uses your Claude Code sign-in, so your Claude plan covers the usage. No API key needed.',
+    'Narro runs Claude Code with the sign-in it already has: your Claude account, or your own API key if you set one up for Claude Code.',
   checkingAccount: 'Checking…',
   notSignedIn: 'Not signed in',
   signedIn: 'Signed in',
   signedInAs: (email: string) => `Signed in as ${email}`,
+  usingApiKey: 'Using your own Anthropic API key',
   signIn: 'Sign in with Claude',
   signOut: 'Sign out',
   finishInBrowser: 'Finish signing in in your browser.',
-  codeLabel: 'Code from the browser',
-  codeHint: 'Only needed if the browser shows a code instead of returning here.',
-  continue: 'Continue',
+  browserFallback:
+    'If the browser shows a code instead of coming back here, cancel and sign in once in Terminal with “claude auth login”.',
   signInFailed: 'Signing in did not finish. Try again.',
   modelLabel: 'Model',
   models: {

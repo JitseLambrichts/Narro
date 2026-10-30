@@ -8,7 +8,6 @@ const api: RendererApi = {
   saveSettings: (patch) => ipcRenderer.invoke(IPC.saveSettings, patch),
   getAccount: () => ipcRenderer.invoke(IPC.getAccount),
   signIn: () => ipcRenderer.invoke(IPC.signIn),
-  submitSignInCode: (code) => ipcRenderer.invoke(IPC.submitSignInCode, code),
   cancelSignIn: () => ipcRenderer.invoke(IPC.cancelSignIn),
   signOut: () => ipcRenderer.invoke(IPC.signOut),
   send: (text) => ipcRenderer.invoke(IPC.send, text),

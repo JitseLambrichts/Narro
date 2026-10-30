@@ -21,7 +21,7 @@ export interface AgentSessionDeps {
   model: ModelId
   // The Claude Code binary to run; null lets the SDK find its own.
   claudePath: string | null
-  // Environment the agent starts from; Anthropic and Claude Code settings are filtered out.
+  // Environment Claude Code starts from; see claudeEnv for what is left out.
   env?: NodeJS.ProcessEnv
   emit(e: AppEvent): void
   requestPermission(e: Extract<AppEvent, { kind: 'permission' }>): Promise<boolean>
@@ -117,7 +117,7 @@ interface Turn {
   finish(): void
 }
 
-// Runs Claude Code in the background, signed in with the user's own Claude account.
+// Runs Claude Code in the background, signed in the way the user set Claude Code up.
 // One process serves the whole conversation: messages stream in, answers and tool
 // activity stream out. If the process ends, the next message starts it again and
 // resumes the same conversation.

@@ -96,7 +96,6 @@ function App(): React.JSX.Element {
             setAccount(view)
             return view
           }}
-          onSubmitCode={(code) => window.api.submitSignInCode(code)}
           onCancelSignIn={() => void window.api.cancelSignIn()}
           onSignOut={async () => setAccount(await window.api.signOut())}
         />

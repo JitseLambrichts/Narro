@@ -22,9 +22,6 @@ export function registerIpc(deps: IpcDeps): void {
   })
   ipcMain.handle(IPC.getAccount, () => deps.account.status())
   ipcMain.handle(IPC.signIn, () => deps.account.signIn())
-  ipcMain.handle(IPC.submitSignInCode, (_evt, code: string) =>
-    deps.account.submitCode(String(code))
-  )
   ipcMain.handle(IPC.cancelSignIn, () => deps.account.cancelSignIn())
   ipcMain.handle(IPC.signOut, () => deps.account.signOut())
   ipcMain.handle(IPC.openProject, () => deps.openProject())

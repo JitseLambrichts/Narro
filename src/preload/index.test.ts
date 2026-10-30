@@ -32,8 +32,7 @@ describe('preload bridge', () => {
       'send',
       'signIn',
       'signOut',
-      'stop',
-      'submitSignInCode'
+      'stop'
     ])
   })
 
@@ -42,9 +41,9 @@ describe('preload bridge', () => {
     expect(ipcRenderer.invoke).toHaveBeenCalledWith('agent:send', 'hi')
   })
 
-  it('submitSignInCode passes the code on the account:code channel', async () => {
-    await api().submitSignInCode('abc')
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith('account:code', 'abc')
+  it('signIn invokes the account:sign-in channel', async () => {
+    await api().signIn()
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('account:sign-in')
   })
 
   it('resolvePermission passes the request id and the decision', async () => {
