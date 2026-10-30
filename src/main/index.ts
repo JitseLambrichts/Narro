@@ -1,7 +1,12 @@
-import { app, shell, BrowserWindow, nativeTheme } from 'electron'
+import { app, shell, BrowserWindow, nativeTheme, safeStorage } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { createSettingsStore } from './settings/store'
+import { registerIpc } from './ipc'
+
+// Tests point the app at a throwaway profile so they never touch real settings.
+if (process.env.VISUAL_IDE_USER_DATA) app.setPath('userData', process.env.VISUAL_IDE_USER_DATA)
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -42,6 +47,13 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
+
+  // Linux test machines usually have no keyring; e2e tests opt into Chromium's fallback key.
+  if (process.platform === 'linux' && process.env.VISUAL_IDE_PLAINTEXT_SECRETS === '1') {
+    safeStorage.setUsePlainTextEncryption(true)
+  }
+  const settings = createSettingsStore(app.getPath('userData'), safeStorage)
+  registerIpc({ settings, onSettingsSaved: () => {} })
 
   createWindow()
 
