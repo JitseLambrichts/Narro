@@ -7,6 +7,9 @@ export interface IpcDeps {
   settings: SettingsStore
   onSettingsSaved(): Promise<void>
   openProject(): Promise<string | null>
+  send(text: string): Promise<{ turnId: string }>
+  stop(): void
+  resolvePermission(requestId: string, allow: boolean): void
 }
 
 export function registerIpc(deps: IpcDeps): void {
@@ -16,4 +19,9 @@ export function registerIpc(deps: IpcDeps): void {
     await deps.onSettingsSaved()
   })
   ipcMain.handle(IPC.openProject, () => deps.openProject())
+  ipcMain.handle(IPC.send, (_evt, text: string) => deps.send(String(text)))
+  ipcMain.handle(IPC.stop, () => deps.stop())
+  ipcMain.handle(IPC.resolvePermission, (_evt, requestId: string, allow: boolean) =>
+    deps.resolvePermission(String(requestId), allow === true)
+  )
 }

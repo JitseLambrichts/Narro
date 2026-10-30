@@ -1,7 +1,13 @@
 import { app, shell, BrowserWindow, dialog, nativeTheme, safeStorage } from 'electron'
+import { randomUUID } from 'crypto'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { query } from '@anthropic-ai/claude-agent-sdk'
 import icon from '../../resources/icon.png?asset'
+import { IPC } from '../shared/ipc'
+import type { AppEvent } from '../shared/types'
+import { AgentSession } from './agent/session'
+import { fakeQuery } from './agent/fakeQuery'
 import { createSettingsStore } from './settings/store'
 import { registerIpc } from './ipc'
 
@@ -53,19 +59,78 @@ app.whenReady().then(() => {
     safeStorage.setUsePlainTextEncryption(true)
   }
   const settings = createSettingsStore(app.getPath('userData'), safeStorage)
+  const queryFn = process.env.VISUAL_IDE_FAKE_AGENT ? fakeQuery : query
+
   let win = createWindow()
   let projectDir: string | null = null
+  let session: AgentSession | null = null
+  // Permission questions waiting for the user, by request id.
+  const pending = new Map<string, (allow: boolean) => void>()
+
+  const emit = (e: AppEvent): void => {
+    if (!win.isDestroyed()) win.webContents.send(IPC.event, e)
+  }
+
+  const denyPending = (): void => {
+    for (const resolve of pending.values()) resolve(false)
+    pending.clear()
+  }
+
+  async function ensureSession(): Promise<AgentSession> {
+    if (!projectDir) throw new Error('Open a project first.')
+    const apiKey = await settings.apiKey()
+    if (!apiKey) throw new Error('Add your Anthropic API key in Settings.')
+    if (!session) {
+      session = new AgentSession({
+        queryFn,
+        projectDir,
+        apiKey,
+        model: await settings.model(),
+        emit,
+        requestPermission: (e) => new Promise((resolve) => pending.set(e.requestId, resolve)),
+        now: Date.now,
+        newId: randomUUID
+      })
+    }
+    return session
+  }
 
   registerIpc({
     settings,
-    onSettingsSaved: async () => {},
+    onSettingsSaved: async () => {
+      const apiKey = await settings.apiKey()
+      session?.configure({ ...(apiKey ? { apiKey } : {}), model: await settings.model() })
+    },
     openProject: async () => {
-      const result = await dialog.showOpenDialog(win, {
-        properties: ['openDirectory', 'createDirectory']
-      })
-      if (result.canceled || result.filePaths.length === 0) return null
-      projectDir = result.filePaths[0]
+      // Tests skip the folder picker.
+      let dir = process.env.VISUAL_IDE_PROJECT_DIR ?? null
+      if (!dir) {
+        const result = await dialog.showOpenDialog(win, {
+          properties: ['openDirectory', 'createDirectory']
+        })
+        if (result.canceled || result.filePaths.length === 0) return null
+        dir = result.filePaths[0]
+      }
+      if (dir !== projectDir) {
+        session?.stop()
+        denyPending()
+        session = null
+        projectDir = dir
+      }
       return projectDir
+    },
+    send: async (text) => {
+      const { turnId, done } = (await ensureSession()).send(text)
+      done.finally(denyPending)
+      return { turnId }
+    },
+    stop: () => {
+      session?.stop()
+      denyPending()
+    },
+    resolvePermission: (requestId, allow) => {
+      pending.get(requestId)?.(allow)
+      pending.delete(requestId)
     }
   })
 

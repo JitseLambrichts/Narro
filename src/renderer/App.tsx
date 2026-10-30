@@ -41,8 +41,12 @@ function App(): React.JSX.Element {
       setSettingsOpen(true)
       return
     }
-    const { turnId } = await window.api.send(text)
-    dispatch({ type: 'user-sent', turnId, text })
+    try {
+      const { turnId } = await window.api.send(text)
+      dispatch({ type: 'user-sent', turnId, text })
+    } catch (err) {
+      console.error('[narro] send failed', err)
+    }
   }
 
   return (

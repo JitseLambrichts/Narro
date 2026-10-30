@@ -48,6 +48,16 @@ function taskStatus(v: unknown): TaskStatus | null {
   return TASK_STATUSES.includes(v as TaskStatus) ? (v as TaskStatus) : null
 }
 
+// The agent runs on the user's own key only: inherited Anthropic or Claude Code settings
+// (another login, a proxy URL, a token) would silently take its place.
+function agentEnv(apiKey: string): Record<string, string | undefined> {
+  const env: Record<string, string | undefined> = {}
+  for (const [key, value] of Object.entries(process.env)) {
+    if (!/^(ANTHROPIC_|CLAUDE)/.test(key)) env[key] = value
+  }
+  return { ...env, ANTHROPIC_API_KEY: apiKey, CLAUDE_CODE_ENABLE_TODO_TOOLS: '1' }
+}
+
 function failureMessage(text: string): string {
   if (/401|authentication|invalid x-api-key|invalid api key/i.test(text)) return AUTH_ERROR
   const firstLine = text.split('\n')[0].trim()
@@ -72,6 +82,11 @@ export class AgentSession {
 
   get running(): boolean {
     return this.turn !== null
+  }
+
+  // A new key or model applies from the next turn on; the conversation itself continues.
+  configure(patch: { apiKey?: string; model?: ModelId }): void {
+    this.deps = { ...this.deps, ...patch }
   }
 
   send(text: string): { turnId: string; done: Promise<void> } {
@@ -156,11 +171,7 @@ export class AgentSession {
       model: this.deps.model,
       includePartialMessages: true,
       systemPrompt: { type: 'preset', preset: 'claude_code', append: PLAIN_LANGUAGE_APPEND },
-      env: {
-        ...process.env,
-        ANTHROPIC_API_KEY: this.deps.apiKey,
-        CLAUDE_CODE_ENABLE_TODO_TOOLS: '1'
-      },
+      env: agentEnv(this.deps.apiKey),
       abortController: turn.abort,
       permissionMode: 'default',
       ...(this.sessionId ? { resume: this.sessionId } : {}),

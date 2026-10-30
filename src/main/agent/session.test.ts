@@ -142,6 +142,24 @@ describe('AgentSession', () => {
     expect(calls[1].options.resume).toBe('s1')
   })
 
+  it('never passes inherited Anthropic or Claude Code settings to the agent', async () => {
+    vi.stubEnv('ANTHROPIC_BASE_URL', 'https://proxy.example')
+    vi.stubEnv('ANTHROPIC_AUTH_TOKEN', 'other-token')
+    vi.stubEnv('CLAUDE_CODE_OAUTH_TOKEN', 'oauth')
+    vi.stubEnv('NARRO_TEST_KEEP', 'yes')
+    const s = session(async function* () {
+      yield success
+    })
+    await s.send('x').done
+    vi.unstubAllEnvs()
+    const env = calls[0].options.env!
+    expect(env.ANTHROPIC_BASE_URL).toBeUndefined()
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBeUndefined()
+    expect(env.CLAUDE_CODE_OAUTH_TOKEN).toBeUndefined()
+    expect(env.NARRO_TEST_KEEP).toBe('yes')
+    expect(env.PATH).toBe(process.env.PATH)
+  })
+
   it('asks permission only for risky tools and denies when the user says no', async () => {
     requestPermission.mockResolvedValue(false)
     const s = session(async function* () {
@@ -330,6 +348,18 @@ describe('AgentSession', () => {
       outcome: 'failed',
       error: 'Something went wrong: Disk is full'
     })
+  })
+
+  it('configure() changes the key and model for the next turn', async () => {
+    const s = session(async function* () {
+      yield init
+      yield success
+    })
+    await s.send('one').done
+    s.configure({ apiKey: 'sk-ant-new', model: 'claude-sonnet-5-5' })
+    await s.send('two').done
+    expect(calls[1].options).toMatchObject({ model: 'claude-sonnet-5-5', resume: 's1' })
+    expect(calls[1].options.env).toMatchObject({ ANTHROPIC_API_KEY: 'sk-ant-new' })
   })
 
   it('refuses a second send while running', () => {
