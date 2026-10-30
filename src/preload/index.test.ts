@@ -22,19 +22,29 @@ describe('preload bridge', () => {
   it('exposes window.api under the name "api"', () => {
     expect(exposedName).toBe('api')
     expect(Object.keys(exposed).sort()).toEqual([
+      'cancelSignIn',
+      'getAccount',
       'getSettings',
       'onEvent',
       'openProject',
       'resolvePermission',
       'saveSettings',
       'send',
-      'stop'
+      'signIn',
+      'signOut',
+      'stop',
+      'submitSignInCode'
     ])
   })
 
   it('send invokes the agent:send channel', async () => {
     await api().send('hi')
     expect(ipcRenderer.invoke).toHaveBeenCalledWith('agent:send', 'hi')
+  })
+
+  it('submitSignInCode passes the code on the account:code channel', async () => {
+    await api().submitSignInCode('abc')
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('account:code', 'abc')
   })
 
   it('resolvePermission passes the request id and the decision', async () => {

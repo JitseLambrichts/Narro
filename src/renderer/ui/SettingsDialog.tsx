@@ -1,73 +1,117 @@
-import { useId, useState } from 'react'
-import type { SettingsView } from '../../shared/ipc'
+import { useId, useRef, useState } from 'react'
+import type { AccountView, SettingsView } from '../../shared/ipc'
 import type { ModelId } from '../../shared/types'
 import { t } from '../i18n/en'
 
-// ipcRenderer.invoke wraps main-process errors as "Error invoking remote method '…': Error: <message>".
-function readableError(err: unknown): string {
-  const text = err instanceof Error ? err.message : String(err)
-  const i = text.lastIndexOf('Error: ')
-  return i >= 0 ? text.slice(i + 'Error: '.length) : text
+function AccountStatus(p: { account: AccountView | null }): React.JSX.Element {
+  if (!p.account) return <span className="account-status">{t.checkingAccount}</span>
+  if (!p.account.signedIn) return <span className="account-status">{t.notSignedIn}</span>
+  return (
+    <span className="account-status signed-in">
+      {p.account.email ? t.signedInAs(p.account.email) : t.signedIn}
+    </span>
+  )
 }
 
 export function SettingsDialog(p: {
   view: SettingsView
-  onSave(patch: { apiKey?: string; model?: ModelId }): Promise<void>
+  account: AccountView | null
+  onModelChange(model: ModelId): Promise<void>
+  onSignIn(): Promise<AccountView>
+  onSubmitCode(code: string): Promise<void>
+  onCancelSignIn(): void
+  onSignOut(): Promise<void>
   onClose(): void
 }): React.JSX.Element {
-  const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState<ModelId>(p.view.model)
+  const [signingIn, setSigningIn] = useState(false)
+  const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
+  const cancelled = useRef(false)
   const titleId = useId()
-  const keyId = useId()
+  const codeId = useId()
   const modelId = useId()
 
-  const key = apiKey.trim()
-  const canSave = !saving && (key !== '' || p.view.hasApiKey)
-
-  async function submit(e: React.FormEvent): Promise<void> {
-    e.preventDefault()
-    if (!canSave) return
-    setSaving(true)
+  async function signIn(): Promise<void> {
+    cancelled.current = false
     setError(null)
-    try {
-      await p.onSave(key ? { apiKey: key, model } : { model })
-    } catch (err) {
-      setError(readableError(err))
-    } finally {
-      setSaving(false)
-    }
+    setCode('')
+    setSigningIn(true)
+    const result = await p.onSignIn()
+    setSigningIn(false)
+    if (!result.signedIn && !cancelled.current) setError(t.signInFailed)
+  }
+
+  function cancel(): void {
+    cancelled.current = true
+    p.onCancelSignIn()
   }
 
   return (
     <div className="dialog-backdrop" onKeyDown={(e) => e.key === 'Escape' && p.onClose()}>
-      <form
-        className="dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onSubmit={submit}
-      >
+      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <h2 id={titleId} className="dialog-title">
           {t.settingsTitle}
         </h2>
 
-        <label className="field-label" htmlFor={keyId}>
-          {t.apiKeyLabel}
-        </label>
-        <input
-          id={keyId}
-          className="field"
-          type="password"
-          autoComplete="off"
-          spellCheck={false}
-          autoFocus
-          value={apiKey}
-          placeholder={p.view.hasApiKey ? '••••••••••••' : 'sk-ant-…'}
-          onChange={(e) => setApiKey(e.target.value)}
-        />
-        <p className="field-hint">{p.view.hasApiKey ? t.apiKeySaved : t.apiKeyHint}</p>
+        <div className="field-label">{t.accountLabel}</div>
+        <div className="account-row">
+          <AccountStatus account={p.account} />
+          {p.account?.signedIn && (
+            <button type="button" className="link-button" onClick={() => void p.onSignOut()}>
+              {t.signOut}
+            </button>
+          )}
+        </div>
+        <p className="field-hint">{t.accountHint}</p>
+
+        {p.account && !p.account.signedIn && !signingIn && (
+          <button
+            type="button"
+            className="button primary account-action"
+            onClick={() => void signIn()}
+          >
+            {t.signIn}
+          </button>
+        )}
+
+        {signingIn && (
+          <form
+            className="sign-in"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (code.trim()) void p.onSubmitCode(code.trim())
+            }}
+          >
+            <p className="sign-in-wait">{t.finishInBrowser}</p>
+            <label className="field-label" htmlFor={codeId}>
+              {t.codeLabel}
+            </label>
+            <input
+              id={codeId}
+              className="field"
+              autoComplete="off"
+              spellCheck={false}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
+            <p className="field-hint">{t.codeHint}</p>
+            <div className="sign-in-actions">
+              <button type="button" className="button" onClick={cancel}>
+                {t.cancel}
+              </button>
+              <button type="submit" className="button primary" disabled={!code.trim()}>
+                {t.continue}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {error && (
+          <p className="field-error" role="alert">
+            {error}
+          </p>
+        )}
 
         <label className="field-label" htmlFor={modelId}>
           {t.modelLabel}
@@ -76,7 +120,11 @@ export function SettingsDialog(p: {
           id={modelId}
           className="field"
           value={model}
-          onChange={(e) => setModel(e.target.value as ModelId)}
+          onChange={(e) => {
+            const next = e.target.value as ModelId
+            setModel(next)
+            void p.onModelChange(next)
+          }}
         >
           {(Object.keys(t.models) as ModelId[]).map((id) => (
             <option key={id} value={id}>
@@ -85,21 +133,12 @@ export function SettingsDialog(p: {
           ))}
         </select>
 
-        {error && (
-          <p className="field-error" role="alert">
-            {error}
-          </p>
-        )}
-
         <div className="dialog-actions">
           <button type="button" className="button" onClick={p.onClose}>
-            {t.cancel}
-          </button>
-          <button type="submit" className="button primary" disabled={!canSave}>
-            {t.save}
+            {t.done}
           </button>
         </div>
-      </form>
+      </div>
     </div>
   )
 }

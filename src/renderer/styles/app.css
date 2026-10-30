@@ -234,3 +234,45 @@
 .composer-button {
   flex: none;
 }
+
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.account-status {
+  color: var(--muted);
+}
+
+.account-status.signed-in {
+  color: var(--text);
+}
+
+.account-action {
+  align-self: flex-start;
+  margin-top: 10px;
+}
+
+.sign-in {
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: 10px;
+  background: var(--accent-soft);
+}
+
+.sign-in-wait {
+  margin: 0 0 4px;
+  font-weight: 500;
+}
+
+.sign-in-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}

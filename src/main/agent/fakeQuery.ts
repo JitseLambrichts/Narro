@@ -1,8 +1,15 @@
 // A scripted stand-in for the Claude Agent SDK, used only by tests (VISUAL_IDE_FAKE_AGENT).
-// It calls the real hooks and writes real files, so the observers read real state.
+// Like Claude Code it keeps running and answers every message from the prompt stream;
+// it calls the real hooks and writes real files, so the observers read real state.
 import { promises as fs } from 'fs'
 import { join } from 'path'
-import type { HookInput, Options, Query, SDKMessage } from '@anthropic-ai/claude-agent-sdk'
+import type {
+  HookInput,
+  Options,
+  Query,
+  SDKMessage,
+  SDKUserMessage
+} from '@anthropic-ai/claude-agent-sdk'
 import type { QueryFn } from './session'
 
 const SESSION_ID = 'fake-session'
@@ -33,8 +40,11 @@ const text = (t: string): SDKMessage =>
     session_id: SESSION_ID
   }) as unknown as SDKMessage
 
-async function* script(prompt: string, o: Options): AsyncGenerator<SDKMessage, void> {
-  const signal = o.abortController?.signal ?? new AbortController().signal
+async function* script(
+  prompt: string,
+  o: Options,
+  signal: AbortSignal
+): AsyncGenerator<SDKMessage, void> {
   const cwd = o.cwd ?? process.cwd()
   const slow = process.env.VISUAL_IDE_FAKE_AGENT_SLOW === '1'
   let n = 0
@@ -87,8 +97,6 @@ async function* script(prompt: string, o: Options): AsyncGenerator<SDKMessage, v
       fs.writeFile(join(cwd, rel), content)
     )
   const pause = (): Promise<void> => (slow ? sleep(SLOW_PAUSE_MS, signal) : Promise.resolve())
-
-  yield { type: 'system', subtype: 'init', session_id: SESSION_ID } as unknown as SDKMessage
 
   if (process.env.VISUAL_IDE_FAKE_AGENT === 'burst') {
     yield text('Writing a lot of files.')
@@ -152,5 +160,42 @@ async function* script(prompt: string, o: Options): AsyncGenerator<SDKMessage, v
   } as unknown as SDKMessage
 }
 
-export const fakeQuery: QueryFn = ({ prompt, options }) =>
-  script(typeof prompt === 'string' ? prompt : '', options ?? {}) as unknown as Query
+function messageText(m: SDKUserMessage): string {
+  const content = m.message.content
+  if (typeof content === 'string') return content
+  return content.map((block) => (block.type === 'text' ? block.text : '')).join('')
+}
+
+export const fakeQuery: QueryFn = ({ prompt, options }) => {
+  const o = options ?? {}
+  const processSignal = o.abortController?.signal ?? new AbortController().signal
+  let interruptTurn: (() => void) | null = null
+
+  async function* run(): AsyncGenerator<SDKMessage, void> {
+    yield { type: 'system', subtype: 'init', session_id: SESSION_ID } as unknown as SDKMessage
+    if (typeof prompt === 'string') return
+    for await (const message of prompt) {
+      const turn = new AbortController()
+      interruptTurn = () => turn.abort()
+      try {
+        yield* script(messageText(message), o, AbortSignal.any([turn.signal, processSignal]))
+      } catch (err) {
+        if (processSignal.aborted) return
+        if (!turn.signal.aborted) throw err
+        yield {
+          type: 'result',
+          subtype: 'error_during_execution',
+          is_error: true,
+          errors: [],
+          session_id: SESSION_ID
+        } as unknown as SDKMessage
+      }
+    }
+  }
+
+  return Object.assign(run(), {
+    interrupt: async () => interruptTurn?.(),
+    setModel: async () => {},
+    close: () => {}
+  }) as unknown as Query
+}

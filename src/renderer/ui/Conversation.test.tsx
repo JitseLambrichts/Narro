@@ -42,14 +42,12 @@ describe('Conversation', () => {
         turn({
           id: 'a',
           status: 'failed',
-          error: "Claude couldn't verify your API key. Check it in Settings."
+          error: "Claude Code isn't signed in. Sign in from Settings."
         }),
         turn({ id: 'b', status: 'stopped' })
       ]
     })
-    expect(
-      screen.getByText("Claude couldn't verify your API key. Check it in Settings.")
-    ).toBeVisible()
+    expect(screen.getByText("Claude Code isn't signed in. Sign in from Settings.")).toBeVisible()
     expect(screen.getByText('Stopped')).toBeVisible()
   })
 })

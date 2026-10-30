@@ -4,16 +4,27 @@ export const t = {
   openProject: 'Open project',
 
   settingsTitle: 'Settings',
-  apiKeyLabel: 'Anthropic API key',
-  apiKeyHint: 'Your key is stored securely on this Mac.',
-  apiKeySaved: 'A key is saved. Enter a new one to replace it.',
+  accountLabel: 'Claude account',
+  accountHint:
+    'Narro uses your Claude Code sign-in, so your Claude plan covers the usage. No API key needed.',
+  checkingAccount: 'Checking…',
+  notSignedIn: 'Not signed in',
+  signedIn: 'Signed in',
+  signedInAs: (email: string) => `Signed in as ${email}`,
+  signIn: 'Sign in with Claude',
+  signOut: 'Sign out',
+  finishInBrowser: 'Finish signing in in your browser.',
+  codeLabel: 'Code from the browser',
+  codeHint: 'Only needed if the browser shows a code instead of returning here.',
+  continue: 'Continue',
+  signInFailed: 'Signing in did not finish. Try again.',
   modelLabel: 'Model',
   models: {
     'claude-opus-5-5': 'Claude Opus 5.5',
     'claude-sonnet-5-5': 'Claude Sonnet 5.5'
   },
-  save: 'Save',
   cancel: 'Cancel',
+  done: 'Done',
 
   askPlaceholder: 'Ask anything…',
   send: 'Send',

@@ -24,14 +24,11 @@ test('a burst of 30 file writes stays smooth and on time @perf', async () => {
     env: {
       ...process.env,
       VISUAL_IDE_USER_DATA: mkdtempSync(join(tmpdir(), 'narro-profile-')),
-      VISUAL_IDE_PLAINTEXT_SECRETS: '1',
       VISUAL_IDE_FAKE_AGENT: 'burst',
       VISUAL_IDE_PROJECT_DIR: mkdtempSync(join(tmpdir(), 'narro-project-'))
     }
   })
   const win = await app.firstWindow()
-  await win.getByLabel('Anthropic API key').fill('sk-ant-test')
-  await win.getByRole('button', { name: 'Save' }).click()
   await win.getByRole('button', { name: 'Open project' }).click()
 
   await win.evaluate(() => {

@@ -9,9 +9,12 @@ This is plan 1 of 5 (the foundation). The plan lives in
 
 ## How it fits together
 
-- **Main process** (`src/main`) runs the Claude Agent SDK. Hooks before and after every tool call
-  go to observers that read the real state of the project folder and produce a `VisualChange`.
-- **Preload** (`src/preload`) exposes `window.api`; the renderer never sees the API key.
+- **Main process** (`src/main`) runs Claude Code in the background through the Claude Agent SDK:
+  one hidden process per project that stays open for the whole conversation. Your messages
+  stream in, Claude's answers and tool activity stream out. Hooks before and after every tool
+  call go to observers that read the real state of the project folder and produce a
+  `VisualChange`.
+- **Preload** (`src/preload`) exposes `window.api` to the renderer.
 - **Renderer** (`src/renderer`): a director paces what appears (never more than 2 s behind), a
   pure reducer keeps the conversation, and React + Motion draw the cards.
 
@@ -25,8 +28,13 @@ npm install
 npm run dev
 ```
 
-On first start the app asks for your Anthropic API key. It is stored encrypted in the macOS
-Keychain-backed safe storage and only used by the agent.
+Narro uses your Claude account, the same sign-in as Claude Code, so your Claude plan covers
+the usage and no API key is needed. If you already use Claude Code on this Mac you are signed
+in. Otherwise the app shows **Sign in with Claude** on first start: your browser opens, you sign
+in, and the app picks it up. No terminal window is involved.
+
+Narro runs the Claude Code that ships with the Agent SDK, so you don't need to install it
+separately. Its conversations are regular Claude Code sessions in `~/.claude/projects`.
 
 ## Checks
 
@@ -46,8 +54,8 @@ npm run e2e
 npx playwright test --grep @perf
 ```
 
-The e2e tests use a scripted agent (`VISUAL_IDE_FAKE_AGENT`) that calls the real hooks and writes
-real files, so no API key or network is needed.
+The e2e tests use a scripted agent and account (`VISUAL_IDE_FAKE_AGENT`) that call the real
+hooks and write real files, so no sign-in or network is needed.
 
 ## Build
 

@@ -19,7 +19,7 @@ function launch(env: Record<string, string> = {}): Promise<ElectronApplication> 
     env: {
       ...process.env,
       VISUAL_IDE_USER_DATA: mkdtempSync(join(tmpdir(), 'narro-profile-')),
-      VISUAL_IDE_PLAINTEXT_SECRETS: '1',
+      VISUAL_IDE_FAKE_AGENT: '1',
       ...env
     }
   })
@@ -33,16 +33,20 @@ test('opens with the empty state', async () => {
   await app.close()
 })
 
-test('asks for an API key on first start and remembers it', async () => {
-  const app = await launch()
+test('asks to sign in with Claude on first start, without an API key', async () => {
+  const app = await launch({ VISUAL_IDE_FAKE_SIGNED_OUT: '1' })
   const win = await app.firstWindow()
-  await win.getByLabel('Anthropic API key').fill('sk-ant-test')
-  await win.getByRole('button', { name: 'Save' }).click()
-  await expect(win.getByRole('dialog')).toHaveCount(0)
-  const view = await win.evaluate(() =>
-    (window as unknown as { api: RendererApi }).api.getSettings()
+  const dialog = win.getByRole('dialog')
+  await expect(dialog.getByText('Not signed in')).toBeVisible()
+  await expect(dialog.getByLabel(/API key/i)).toHaveCount(0)
+  await dialog.getByRole('button', { name: 'Sign in with Claude' }).click()
+  await expect(dialog.getByText('Signed in as test@example.com')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Done' }).click()
+  await expect(dialog).toHaveCount(0)
+  const account = await win.evaluate(() =>
+    (window as unknown as { api: RendererApi }).api.getAccount()
   )
-  expect(view).toEqual({ hasApiKey: true, model: 'claude-opus-5-5' })
+  expect(account).toEqual({ signedIn: true, email: 'test@example.com' })
   await app.close()
 })
 
@@ -52,13 +56,10 @@ test.describe('with the scripted agent', () => {
 
   async function start(env: Record<string, string> = {}): Promise<void> {
     app = await launch({
-      VISUAL_IDE_FAKE_AGENT: '1',
       VISUAL_IDE_PROJECT_DIR: mkdtempSync(join(tmpdir(), 'narro-project-')),
       ...env
     })
     win = await app.firstWindow()
-    await win.getByLabel('Anthropic API key').fill('sk-ant-test')
-    await win.getByRole('button', { name: 'Save' }).click()
     await win.getByRole('button', { name: 'Open project' }).click()
     await expect(win.getByPlaceholder('Ask anything…')).toBeEnabled()
   }

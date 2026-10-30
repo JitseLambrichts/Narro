@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useState } from 'react'
-import type { SettingsView } from '../shared/ipc'
+import type { AccountView, SettingsView } from '../shared/ipc'
 import { initialState, reduce } from './state/conversation'
 import { useDirector } from './director/useDirector'
 import { Conversation } from './ui/Conversation'
@@ -14,16 +14,24 @@ function folderName(path: string): string {
 
 function App(): React.JSX.Element {
   const [settings, setSettings] = useState<SettingsView | null>(null)
+  const [account, setAccount] = useState<AccountView | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [projectDir, setProjectDir] = useState<string | null>(null)
   const [state, dispatch] = useReducer(reduce, initialState)
 
   useEffect(() => {
-    window.api.getSettings().then((view) => {
-      setSettings(view)
-      if (!view.hasApiKey) setSettingsOpen(true)
+    window.api.getSettings().then(setSettings)
+    window.api.getAccount().then((view) => {
+      setAccount(view)
+      if (!view.signedIn) setSettingsOpen(true)
     })
   }, [])
+
+  function openSettings(): void {
+    setSettingsOpen(true)
+    // The sign-in can change outside Narro (for example `claude auth logout`), so look again.
+    window.api.getAccount().then(setAccount)
+  }
 
   useDirector(
     useCallback((events) => events.forEach((event) => dispatch({ type: 'event', event })), [])
@@ -37,8 +45,10 @@ function App(): React.JSX.Element {
   }
 
   async function send(text: string): Promise<void> {
-    if (!settings?.hasApiKey) {
-      setSettingsOpen(true)
+    // Only a known sign-out blocks sending; while the check is still running the message goes
+    // through, and Claude Code itself reports a missing sign-in.
+    if (account && !account.signedIn) {
+      openSettings()
       return
     }
     try {
@@ -51,10 +61,7 @@ function App(): React.JSX.Element {
 
   return (
     <div className="app">
-      <TopBar
-        projectName={projectDir ? folderName(projectDir) : null}
-        onSettings={() => setSettingsOpen(true)}
-      />
+      <TopBar projectName={projectDir ? folderName(projectDir) : null} onSettings={openSettings} />
       {projectDir ? (
         <Conversation
           state={state}
@@ -78,12 +85,20 @@ function App(): React.JSX.Element {
       {settingsOpen && settings && (
         <SettingsDialog
           view={settings}
+          account={account}
           onClose={() => setSettingsOpen(false)}
-          onSave={async (patch) => {
-            await window.api.saveSettings(patch)
+          onModelChange={async (model) => {
+            await window.api.saveSettings({ model })
             setSettings(await window.api.getSettings())
-            setSettingsOpen(false)
           }}
+          onSignIn={async () => {
+            const view = await window.api.signIn()
+            setAccount(view)
+            return view
+          }}
+          onSubmitCode={(code) => window.api.submitSignInCode(code)}
+          onCancelSignIn={() => void window.api.cancelSignIn()}
+          onSignOut={async () => setAccount(await window.api.signOut())}
         />
       )}
     </div>

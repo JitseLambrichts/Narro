@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, dialog, nativeTheme, safeStorage } from 'electron'
+import { app, shell, BrowserWindow, dialog, nativeTheme } from 'electron'
 import { randomUUID } from 'crypto'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -8,7 +8,10 @@ import { IPC } from '../shared/ipc'
 import type { AppEvent } from '../shared/types'
 import { AgentSession } from './agent/session'
 import { fakeQuery } from './agent/fakeQuery'
-import { createSettingsStore } from './settings/store'
+import { claudeBinary, createClaudeAccount } from './claude/account'
+import { claudeEnv } from './claude/env'
+import { createFakeAccount } from './claude/fakeAccount'
+import { createSettingsStore, forgetStoredApiKey } from './settings/store'
 import { registerIpc } from './ipc'
 
 // Tests point the app at a throwaway profile so they never touch real settings.
@@ -47,6 +50,8 @@ function createWindow(): BrowserWindow {
   return win
 }
 
+let session: AgentSession | null = null
+
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.narro.app')
 
@@ -54,16 +59,20 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // Linux test machines usually have no keyring; e2e tests opt into Chromium's fallback key.
-  if (process.platform === 'linux' && process.env.VISUAL_IDE_PLAINTEXT_SECRETS === '1') {
-    safeStorage.setUsePlainTextEncryption(true)
-  }
-  const settings = createSettingsStore(app.getPath('userData'), safeStorage)
-  const queryFn = process.env.VISUAL_IDE_FAKE_AGENT ? fakeQuery : query
+  const fake = Boolean(process.env.VISUAL_IDE_FAKE_AGENT)
+  const userData = app.getPath('userData')
+  const settings = createSettingsStore(userData)
+  void forgetStoredApiKey(userData)
+  // Narro runs the Claude Code that ships with the Agent SDK, signed in with the user's own
+  // Claude account; tests use a scripted agent and account instead.
+  const claudePath = fake ? null : claudeBinary()
+  const account = fake
+    ? createFakeAccount(process.env.VISUAL_IDE_FAKE_SIGNED_OUT !== '1')
+    : createClaudeAccount(claudePath, claudeEnv())
+  const queryFn = fake ? fakeQuery : query
 
   let win = createWindow()
   let projectDir: string | null = null
-  let session: AgentSession | null = null
   // Permission questions waiting for the user, by request id.
   const pending = new Map<string, (allow: boolean) => void>()
 
@@ -78,13 +87,11 @@ app.whenReady().then(() => {
 
   async function ensureSession(): Promise<AgentSession> {
     if (!projectDir) throw new Error('Open a project first.')
-    const apiKey = await settings.apiKey()
-    if (!apiKey) throw new Error('Add your Anthropic API key in Settings.')
     if (!session) {
       session = new AgentSession({
         queryFn,
         projectDir,
-        apiKey,
+        claudePath,
         model: await settings.model(),
         emit,
         requestPermission: (e) => new Promise((resolve) => pending.set(e.requestId, resolve)),
@@ -97,9 +104,9 @@ app.whenReady().then(() => {
 
   registerIpc({
     settings,
+    account,
     onSettingsSaved: async () => {
-      const apiKey = await settings.apiKey()
-      session?.configure({ ...(apiKey ? { apiKey } : {}), model: await settings.model() })
+      session?.configure({ model: await settings.model() })
     },
     openProject: async () => {
       // Tests skip the folder picker.
@@ -112,7 +119,7 @@ app.whenReady().then(() => {
         dir = result.filePaths[0]
       }
       if (dir !== projectDir) {
-        session?.stop()
+        session?.close()
         denyPending()
         session = null
         projectDir = dir
@@ -137,6 +144,11 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) win = createWindow()
   })
+})
+
+// The background Claude Code process ends with the app.
+app.on('will-quit', () => {
+  session?.close()
 })
 
 app.on('window-all-closed', () => {
