@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { Change, CommandChange, FileChange } from '../../shared/types'
+import type { Change, CommandChange, FileChange, TableChange } from '../../shared/types'
 import type { CardModel } from './conversation'
 import { cardTitle } from './cardTitle'
 
@@ -24,6 +24,23 @@ function card(
 ): CardModel {
   return { id: 'c', targetKey: 'k', status, change, files, lastAt: 0, expanded: false, working: [] }
 }
+function table(over: Partial<TableChange>): TableChange {
+  return {
+    type: 'table',
+    database: 'shop.db',
+    table: 'klanten',
+    status: 'modified',
+    columns: ['naam'],
+    newColumns: [],
+    rows: [],
+    added: 0,
+    changed: 0,
+    removed: 0,
+    moreRows: 0,
+    totalRows: 4,
+    ...over
+  }
+}
 const group = [file('a', 'created'), file('b', 'modified'), file('c', 'modified')]
 
 describe('cardTitle', () => {
@@ -47,6 +64,14 @@ describe('cardTitle', () => {
     [
       card({ type: 'activity', items: ['Read a.ts', 'Read b.ts', 'Read c.ts'] }, 'done'),
       'Read a.ts and 2 more'
-    ]
+    ],
+    [card(table({ status: 'created', added: 4 }), 'done'), 'Created table klanten'],
+    [card(table({ status: 'deleted', removed: 4 }), 'done'), 'Deleted table klanten'],
+    [card(table({ added: 1 }), 'done'), 'Added 1 row to klanten'],
+    [card(table({ added: 3 }), 'done'), 'Added 3 rows to klanten'],
+    [card(table({ removed: 2 }), 'done'), 'Removed 2 rows from klanten'],
+    [card(table({ changed: 1 }), 'done'), 'Changed 1 row in klanten'],
+    [card(table({ newColumns: ['email'] }), 'done'), 'Added a column to klanten'],
+    [card(table({ added: 1, changed: 1 }), 'done'), 'Updated table klanten']
   ])('%#: %s', (c, title) => expect(cardTitle(c)).toBe(title))
 })

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { DatabaseSync } from 'node:sqlite'
 import { activityLabel, ToolObserver } from './registry'
 
 let tmp: string
@@ -117,4 +118,53 @@ describe('ToolObserver', () => {
     ['Read', {}, 'Read a file'],
     ['Mystery', {}, 'Used Mystery']
   ])('activityLabel(%s)', (tool, input, label) => expect(activityLabel(tool, input)).toBe(label))
+})
+
+describe('ToolObserver and databases', () => {
+  it('a command that creates a database shows its new table', async () => {
+    const input = {
+      command: 'sqlite3 klanten.db < klanten.sql',
+      description: 'Create the customer list'
+    }
+    await o.before('t5', 'Bash', input)
+    const db = new DatabaseSync(join(tmp, 'klanten.db'))
+    db.exec("CREATE TABLE klanten (naam TEXT); INSERT INTO klanten VALUES ('Emma'), ('Lucas');")
+    db.close()
+    const [command, table] = await o.after('t5', 'Bash', input, { stdout: '' }, 30, false)
+    expect(command.change).toMatchObject({ type: 'command', changedFiles: ['klanten.db'] })
+    expect(table).toMatchObject({
+      toolUseId: 't5',
+      phase: 'done',
+      targetKey: 'table:klanten.db:klanten',
+      change: { type: 'table', status: 'created', added: 2, columns: ['naam'] }
+    })
+  })
+
+  it('a command that changes rows shows only what changed', async () => {
+    const db = new DatabaseSync(join(tmp, 'shop.db'))
+    db.exec(
+      "CREATE TABLE klanten (naam TEXT, stad TEXT); INSERT INTO klanten VALUES ('Emma', 'Hasselt'), ('Lucas', 'Gent');"
+    )
+    db.close()
+    const input = { command: 'python update.py' }
+    await o.before('t6', 'Bash', input)
+    const again = new DatabaseSync(join(tmp, 'shop.db'))
+    again.exec("UPDATE klanten SET stad = 'Brussel' WHERE naam = 'Lucas'")
+    again.close()
+    const [, table] = await o.after('t6', 'Bash', input, { stdout: '' }, 30, false)
+    expect(table.change).toMatchObject({
+      type: 'table',
+      status: 'modified',
+      changed: 1,
+      rows: [{ kind: 'changed', cells: ['Lucas', 'Brussel'], changedCells: [1] }]
+    })
+  })
+
+  it('a command that leaves the data alone adds no table card', async () => {
+    const db = new DatabaseSync(join(tmp, 'shop.db'))
+    db.exec('CREATE TABLE t (x); INSERT INTO t VALUES (1);')
+    db.close()
+    await o.before('t7', 'Bash', { command: 'ls' })
+    expect(await o.after('t7', 'Bash', { command: 'ls' }, { stdout: '' }, 5, false)).toHaveLength(1)
+  })
 })

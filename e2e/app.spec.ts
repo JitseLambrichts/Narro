@@ -101,8 +101,35 @@ test.describe('with the scripted agent', () => {
     await expect(first.getByRole('button', { name: 'Show' })).toHaveCount(2) // file card + command card
     await expect(first.getByTestId('card-body')).toHaveCount(0)
     await first.getByRole('button', { name: 'Show' }).first().click()
+    await first.getByRole('button', { name: 'Show code' }).click()
     await expect(first.getByTestId('card-body')).toBeVisible()
-    await expect(first.getByRole('button', { name: 'Hide' })).toBeVisible()
+    await expect(first.getByRole('button', { name: 'Hide', exact: true })).toBeVisible()
+  })
+
+  test('a new database table appears as rows, with the code out of sight', async () => {
+    await start()
+    await send('Make a customer list')
+    const table = win.getByTestId('live-card').filter({ hasText: 'Created table klanten' })
+    await expect(table.locator('tbody tr[data-kind="added"]')).toHaveCount(4)
+    await expect(table.getByRole('cell', { name: 'Emma' })).toBeVisible()
+    await expect(table.getByText('klanten.db · 4 rows')).toBeVisible()
+    await expect(win.getByText(/CREATE TABLE/)).toHaveCount(0)
+    await expect(win.getByText('sqlite3 klanten.db < klanten.sql')).toHaveCount(0)
+
+    const sql = win.getByTestId('live-card').filter({ hasText: 'Created klanten.sql' })
+    await sql.getByRole('button', { name: 'Show code' }).click()
+    await expect(sql.getByText(/CREATE TABLE/)).toBeVisible()
+  })
+
+  test('changed cells and new rows are marked in the table', async () => {
+    await start()
+    await send('Make a customer list')
+    await expect(win.getByText('Created table klanten')).toBeVisible()
+    await expect(win.getByRole('button', { name: 'Send' })).toBeVisible()
+    await send('Lucas moved to Brussel')
+    const table = win.getByTestId('live-card').filter({ hasText: 'Updated table klanten' })
+    await expect(table.locator('td[data-changed]')).toHaveText(['Brussel'])
+    await expect(table.locator('tr[data-kind="added"]')).toContainText('Mila')
   })
 
   test('Stop ends a running turn', async () => {
