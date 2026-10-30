@@ -365,6 +365,7 @@ describe('AgentSession', () => {
   it('refuses a second send while running', () => {
     const s = session(async function* () {
       await new Promise(() => {})
+      yield success
     })
     s.send('a')
     expect(s.running).toBe(true)

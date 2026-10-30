@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import type { ConversationState, Turn, TurnItem } from '../state/conversation'
-import { fade, spring } from '../motion/tokens'
+import { motionFor, type MotionSet } from '../motion/tokens'
 import { t } from '../i18n/en'
 import { isNearBottom } from './scroll'
 import { UserBubble } from './UserBubble'
@@ -16,8 +16,15 @@ interface Props {
   onDecide(requestId: string, allow: boolean): void
 }
 
-const enter = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } }
-const transition = { layout: spring, default: fade }
+// Props for an item that fades (and, with full motion, slides) in and keeps its place smoothly.
+function appear(m: MotionSet): {
+  initial: MotionSet['initial']
+  animate: MotionSet['enter']
+  exit: MotionSet['exit']
+  transition: { layout: MotionSet['layout'] }
+} {
+  return { initial: m.initial, animate: m.enter, exit: m.exit, transition: { layout: m.layout } }
+}
 
 function Item(p: { turn: Turn; item: TurnItem } & Omit<Props, 'state'>): React.JSX.Element {
   const { turn, item } = p
@@ -44,8 +51,9 @@ function Item(p: { turn: Turn; item: TurnItem } & Omit<Props, 'state'>): React.J
   }
 }
 
-function TurnView(p: { turn: Turn } & Omit<Props, 'state'>): React.JSX.Element {
+function TurnView(p: { turn: Turn; m: MotionSet } & Omit<Props, 'state'>): React.JSX.Element {
   const { turn } = p
+  const a = appear(p.m)
   // Items already there when a turn first renders appear as they are; later ones animate in.
   return (
     <div className="turn" data-testid="turn">
@@ -53,30 +61,17 @@ function TurnView(p: { turn: Turn } & Omit<Props, 'state'>): React.JSX.Element {
       <TaskChecklist tasks={turn.tasks} />
       <AnimatePresence initial={false}>
         {turn.items.map((item) => (
-          <motion.div key={item.id} layout="position" {...enter} transition={transition}>
+          <motion.div key={item.id} layout="position" {...a}>
             <Item turn={turn} item={item} onToggleCard={p.onToggleCard} onDecide={p.onDecide} />
           </motion.div>
         ))}
         {turn.status === 'failed' && turn.error && (
-          <motion.div
-            key="error"
-            layout
-            {...enter}
-            transition={transition}
-            className="turn-error"
-            role="alert"
-          >
+          <motion.div key="error" layout {...a} className="turn-error" role="alert">
             {turn.error}
           </motion.div>
         )}
         {turn.status === 'stopped' && (
-          <motion.div
-            key="stopped"
-            layout
-            {...enter}
-            transition={transition}
-            className="turn-stopped"
-          >
+          <motion.div key="stopped" layout {...a} className="turn-stopped">
             {t.stopped}
           </motion.div>
         )}
@@ -86,6 +81,7 @@ function TurnView(p: { turn: Turn } & Omit<Props, 'state'>): React.JSX.Element {
 }
 
 export function Conversation(p: Props): React.JSX.Element {
+  const m = motionFor(useReducedMotion() ?? false)
   const scroller = useRef<HTMLDivElement>(null)
   // Whether the reader is at the bottom; reading further up must not be interrupted.
   const stick = useRef(true)
@@ -137,8 +133,8 @@ export function Conversation(p: Props): React.JSX.Element {
       <div className="conversation-column">
         <AnimatePresence initial={false}>
           {p.state.turns.map((turn) => (
-            <motion.div key={turn.id} layout="position" {...enter} transition={transition}>
-              <TurnView turn={turn} onToggleCard={p.onToggleCard} onDecide={p.onDecide} />
+            <motion.div key={turn.id} layout="position" {...appear(m)}>
+              <TurnView turn={turn} m={m} onToggleCard={p.onToggleCard} onDecide={p.onDecide} />
             </motion.div>
           ))}
         </AnimatePresence>

@@ -4,7 +4,15 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Composer } from './Composer'
 
-function setup(running = false, disabled = false) {
+function setup(
+  running = false,
+  disabled = false
+): {
+  onSend: ReturnType<typeof vi.fn>
+  onStop: ReturnType<typeof vi.fn>
+  box: HTMLElement
+  user: ReturnType<typeof userEvent.setup>
+} {
   const onSend = vi.fn()
   const onStop = vi.fn()
   render(<Composer running={running} disabled={disabled} onSend={onSend} onStop={onStop} />)

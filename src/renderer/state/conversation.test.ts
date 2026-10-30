@@ -5,7 +5,8 @@ import {
   initialState,
   type Action,
   type CardModel,
-  type ConversationState
+  type ConversationState,
+  type TurnItem
 } from './conversation'
 
 let n = 0
@@ -71,7 +72,7 @@ function run(...steps: Step[]): ConversationState {
     return reduce(s, { type: 'event', event: step })
   }, initialState)
 }
-const itemsOf = (s: ConversationState, i = 0) => s.turns[i].items
+const itemsOf = (s: ConversationState, i = 0): TurnItem[] => s.turns[i].items
 const cards = (s: ConversationState, i = 0): CardModel[] =>
   itemsOf(s, i).flatMap((it) => (it.kind === 'card' ? [it.card] : []))
 

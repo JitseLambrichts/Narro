@@ -1,9 +1,10 @@
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import type { CardModel } from '../state/conversation'
 import { cardTitle } from '../state/cardTitle'
-import { fade, spring } from '../motion/tokens'
+import { motionFor } from '../motion/tokens'
 import { t } from '../i18n/en'
-import { FileCard, hasFileBody } from './FileCard'
+import { FileCard } from './FileCard'
+import { hasFileBody } from './fileBody'
 import { ChangeStats, FilesGroupCard } from './FilesGroupCard'
 import { CommandCard } from './CommandCard'
 import { ActivityCard } from './ActivityCard'
@@ -39,6 +40,7 @@ export function LiveCard(p: {
   onToggle(): void
 }): React.JSX.Element {
   const { card } = p
+  const m = motionFor(useReducedMotion() ?? false)
   const body = hasBody(card)
   const pill = p.collapsed && !card.expanded
   const showBody = body && !pill
@@ -47,13 +49,13 @@ export function LiveCard(p: {
   return (
     <motion.div
       layout
-      transition={{ layout: spring }}
+      transition={{ layout: m.layout }}
       className={pill ? 'card pill' : 'card'}
       data-status={card.status}
       data-testid="live-card"
       aria-busy={card.status === 'working'}
     >
-      <motion.div layout="position" transition={{ layout: spring }} className="card-head">
+      <motion.div layout="position" transition={{ layout: m.layout }} className="card-head">
         <span className={`dot ${card.status}`} aria-hidden="true" />
         <span className="card-title">{cardTitle(card)}</span>
         {single && !pill && card.status !== 'working' && !single.tooLarge && (
@@ -72,9 +74,8 @@ export function LiveCard(p: {
             className="card-body"
             data-testid="card-body"
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={fade}
+            animate={{ opacity: 1, transition: m.enter.transition }}
+            exit={m.exit}
           >
             <Body card={card} />
           </motion.div>

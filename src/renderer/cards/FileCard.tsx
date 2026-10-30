@@ -7,7 +7,3 @@ export function FileCard(p: { change: FileChange }): React.JSX.Element | null {
   if (p.change.lines.length === 0) return null
   return <DiffLines lines={p.change.lines} />
 }
-
-export function hasFileBody(change: FileChange): boolean {
-  return change.tooLarge || change.lines.length > 0
-}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FileChange } from '../../shared/types'
-import { FileCard, hasFileBody } from './FileCard'
+import { FileCard } from './FileCard'
+import { hasFileBody } from './fileBody'
 
 export function ChangeStats(p: { added: number; removed: number }): React.JSX.Element {
   return (
