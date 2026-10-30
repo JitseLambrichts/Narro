@@ -1,6 +1,7 @@
 import './styles/tokens.css'
 import './styles/app.css'
 import './styles/cards.css'
+import './styles/markdown.css'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'

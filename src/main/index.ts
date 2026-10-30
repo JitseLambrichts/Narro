@@ -13,6 +13,7 @@ import { claudeEnv } from './claude/env'
 import { createFakeAccount } from './claude/fakeAccount'
 import { createSettingsStore, forgetStoredApiKey } from './settings/store'
 import { registerIpc } from './ipc'
+import { isExternalLink, isSamePage } from './links'
 
 // Tests point the app at a throwaway profile so they never touch real settings.
 if (process.env.VISUAL_IDE_USER_DATA) app.setPath('userData', process.env.VISUAL_IDE_USER_DATA)
@@ -38,8 +39,14 @@ function createWindow(): BrowserWindow {
   win.on('ready-to-show', () => win.show())
 
   win.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    if (isExternalLink(details.url)) shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  win.webContents.on('will-navigate', (event, url) => {
+    if (isSamePage(url, win.webContents.getURL())) return
+    event.preventDefault()
+    if (isExternalLink(url)) shell.openExternal(url)
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
