@@ -24,7 +24,7 @@ function createWindow(): BrowserWindow {
     minWidth: 720,
     show: false,
     titleBarStyle: 'hiddenInset',
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0b0b0d' : '#f6f6f7',
+    backgroundColor: '#ffffff',
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -54,6 +54,7 @@ let session: AgentSession | null = null
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.narro.app')
+  nativeTheme.themeSource = 'light'
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
