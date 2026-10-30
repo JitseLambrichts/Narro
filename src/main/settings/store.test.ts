@@ -17,7 +17,10 @@ beforeEach(() => {
 
 describe('createSettingsStore', () => {
   it('defaults to Opus without a key', async () => {
-    expect(await createSettingsStore(tmp, cipher).view()).toEqual({ hasApiKey: false, model: 'claude-opus-5-5' })
+    expect(await createSettingsStore(tmp, cipher).view()).toEqual({
+      hasApiKey: false,
+      model: 'claude-opus-5-5'
+    })
   })
 
   it('stores the key encrypted and never exposes it in view()', async () => {
@@ -30,7 +33,9 @@ describe('createSettingsStore', () => {
 
   it('refuses to store a key when secure storage is unavailable', async () => {
     const s = createSettingsStore(tmp, { ...cipher, isEncryptionAvailable: () => false })
-    await expect(s.save({ apiKey: 'sk-ant-test' })).rejects.toThrow('Secure storage is not available on this Mac.')
+    await expect(s.save({ apiKey: 'sk-ant-test' })).rejects.toThrow(
+      'Secure storage is not available on this Mac.'
+    )
     expect(existsSync(join(tmp, 'api-key.bin'))).toBe(false)
   })
 

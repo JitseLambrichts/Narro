@@ -61,7 +61,8 @@ export function createSettingsStore(dir: string, cipher: SecretCipher): Settings
       await fs.mkdir(dir, { recursive: true })
       const key = patch.apiKey?.trim()
       if (key) {
-        if (!cipher.isEncryptionAvailable()) throw new Error('Secure storage is not available on this Mac.')
+        if (!cipher.isEncryptionAvailable())
+          throw new Error('Secure storage is not available on this Mac.')
         await fs.writeFile(keyPath, cipher.encryptString(key), { mode: 0o600 })
       }
       if (patch.model !== undefined && MODELS.includes(patch.model)) {

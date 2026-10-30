@@ -11,12 +11,22 @@ beforeEach(() => {
 
 describe('readSnapshot', () => {
   it('reads a missing file as not existing', async () => {
-    expect(await readSnapshot(join(tmp, 'nope.txt'))).toEqual({ exists: false, text: null, binary: false, tooLarge: false })
+    expect(await readSnapshot(join(tmp, 'nope.txt'))).toEqual({
+      exists: false,
+      text: null,
+      binary: false,
+      tooLarge: false
+    })
   })
 
   it('reads a text file', async () => {
     writeFileSync(join(tmp, 'a.txt'), 'hi\n')
-    expect(await readSnapshot(join(tmp, 'a.txt'))).toEqual({ exists: true, text: 'hi\n', binary: false, tooLarge: false })
+    expect(await readSnapshot(join(tmp, 'a.txt'))).toEqual({
+      exists: true,
+      text: 'hi\n',
+      binary: false,
+      tooLarge: false
+    })
   })
 
   it('flags binary files', async () => {
@@ -26,7 +36,12 @@ describe('readSnapshot', () => {
 
   it('flags files above MAX_DIFF_BYTES', async () => {
     writeFileSync(join(tmp, 'big.txt'), 'a'.repeat(MAX_DIFF_BYTES + 1))
-    expect(await readSnapshot(join(tmp, 'big.txt'))).toEqual({ exists: true, text: null, binary: false, tooLarge: true })
+    expect(await readSnapshot(join(tmp, 'big.txt'))).toEqual({
+      exists: true,
+      text: null,
+      binary: false,
+      tooLarge: true
+    })
   })
 })
 
@@ -35,9 +50,17 @@ describe('fileChange', () => {
   const two = { exists: true, text: 'a\nb\n', binary: false, tooLarge: false }
 
   it('builds created / deleted / tooLarge changes', () => {
-    expect(fileChange('n.md', none, two)).toMatchObject({ status: 'created', added: 2, removed: 0, tooLarge: false })
+    expect(fileChange('n.md', none, two)).toMatchObject({
+      status: 'created',
+      added: 2,
+      removed: 0,
+      tooLarge: false
+    })
     expect(fileChange('n.md', two, none)).toMatchObject({ status: 'deleted', added: 0, removed: 2 })
-    expect(fileChange('i.png', none, { ...two, text: null, binary: true })).toMatchObject({ tooLarge: true, lines: [] })
+    expect(fileChange('i.png', none, { ...two, text: null, binary: true })).toMatchObject({
+      tooLarge: true,
+      lines: []
+    })
   })
 
   it('builds a modified change with the diff', () => {

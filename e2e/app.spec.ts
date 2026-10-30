@@ -33,7 +33,9 @@ test('asks for an API key on first start and remembers it', async () => {
   await win.getByLabel('Anthropic API key').fill('sk-ant-test')
   await win.getByRole('button', { name: 'Save' }).click()
   await expect(win.getByRole('dialog')).toHaveCount(0)
-  const view = await win.evaluate(() => (window as unknown as { api: RendererApi }).api.getSettings())
+  const view = await win.evaluate(() =>
+    (window as unknown as { api: RendererApi }).api.getSettings()
+  )
   expect(view).toEqual({ hasApiKey: true, model: 'claude-opus-5-5' })
   await app.close()
 })

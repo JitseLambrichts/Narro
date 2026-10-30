@@ -2,7 +2,16 @@ import { promises as fs } from 'fs'
 import { join } from 'path'
 import ignore, { type Ignore } from 'ignore'
 
-export const DEFAULT_IGNORES = ['node_modules', '.git', 'dist', 'build', 'out', '.next', '.cache', 'coverage']
+export const DEFAULT_IGNORES = [
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  'out',
+  '.next',
+  '.cache',
+  'coverage'
+]
 export const MAX_INDEX_FILES = 20000
 
 // Key: path relative to the project root, with '/' as separator.
@@ -18,7 +27,10 @@ async function loadIgnore(root: string): Promise<Ignore> {
   return ig
 }
 
-export async function indexProject(root: string, opts: { maxFiles?: number } = {}): Promise<ProjectIndex> {
+export async function indexProject(
+  root: string,
+  opts: { maxFiles?: number } = {}
+): Promise<ProjectIndex> {
   const maxFiles = opts.maxFiles ?? MAX_INDEX_FILES
   const index: ProjectIndex = new Map()
   const ig = await loadIgnore(root)

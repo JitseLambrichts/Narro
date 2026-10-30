@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { diffText } from './textDiff'
 
-const lines = (n: number, from = 1): string => Array.from({ length: n }, (_, i) => `l${i + from}`).join('\n')
+const lines = (n: number, from = 1): string =>
+  Array.from({ length: n }, (_, i) => `l${i + from}`).join('\n')
 
 describe('diffText', () => {
   it('marks one changed line', () => {
@@ -20,13 +21,34 @@ describe('diffText', () => {
   it('keeps context on both sides of a change in the middle', () => {
     const d = diffText(`${lines(10)}\nx\n${lines(10, 11)}\n`, `${lines(10)}\ny\n${lines(10, 11)}\n`)
     expect(d.lines.map((l) => l.text)).toEqual([
-      '7 unchanged lines', 'l8', 'l9', 'l10', 'x', 'y', 'l11', 'l12', 'l13', '7 unchanged lines'
+      '7 unchanged lines',
+      'l8',
+      'l9',
+      'l10',
+      'x',
+      'y',
+      'l11',
+      'l12',
+      'l13',
+      '7 unchanged lines'
     ])
   })
 
   it('folds the middle of a long run between two changes', () => {
     const d = diffText(`a\n${lines(10)}\nb\n`, `A\n${lines(10)}\nB\n`)
-    expect(d.lines.map((l) => l.text)).toEqual(['a', 'A', 'l1', 'l2', 'l3', '4 unchanged lines', 'l8', 'l9', 'l10', 'b', 'B'])
+    expect(d.lines.map((l) => l.text)).toEqual([
+      'a',
+      'A',
+      'l1',
+      'l2',
+      'l3',
+      '4 unchanged lines',
+      'l8',
+      'l9',
+      'l10',
+      'b',
+      'B'
+    ])
   })
 
   it('does not fold a single line into a gap', () => {
@@ -36,7 +58,10 @@ describe('diffText', () => {
 
   it('counts every line of a new file as added', () => {
     expect(diffText('', 'a\nb\n')).toEqual({
-      lines: [{ kind: 'add', text: 'a' }, { kind: 'add', text: 'b' }],
+      lines: [
+        { kind: 'add', text: 'a' },
+        { kind: 'add', text: 'b' }
+      ],
       added: 2,
       removed: 0
     })

@@ -21,9 +21,15 @@ describe('preload bridge', () => {
 
   it('exposes window.api under the name "api"', () => {
     expect(exposedName).toBe('api')
-    expect(Object.keys(exposed).sort()).toEqual(
-      ['getSettings', 'onEvent', 'openProject', 'resolvePermission', 'saveSettings', 'send', 'stop']
-    )
+    expect(Object.keys(exposed).sort()).toEqual([
+      'getSettings',
+      'onEvent',
+      'openProject',
+      'resolvePermission',
+      'saveSettings',
+      'send',
+      'stop'
+    ])
   })
 
   it('send invokes the agent:send channel', async () => {

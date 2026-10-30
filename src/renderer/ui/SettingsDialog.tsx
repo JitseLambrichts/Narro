@@ -42,7 +42,13 @@ export function SettingsDialog(p: {
 
   return (
     <div className="dialog-backdrop" onKeyDown={(e) => e.key === 'Escape' && p.onClose()}>
-      <form className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} onSubmit={submit}>
+      <form
+        className="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onSubmit={submit}
+      >
         <h2 id={titleId} className="dialog-title">
           {t.settingsTitle}
         </h2>
@@ -66,7 +72,12 @@ export function SettingsDialog(p: {
         <label className="field-label" htmlFor={modelId}>
           {t.modelLabel}
         </label>
-        <select id={modelId} className="field" value={model} onChange={(e) => setModel(e.target.value as ModelId)}>
+        <select
+          id={modelId}
+          className="field"
+          value={model}
+          onChange={(e) => setModel(e.target.value as ModelId)}
+        >
           {(Object.keys(t.models) as ModelId[]).map((id) => (
             <option key={id} value={id}>
               {t.models[id]}

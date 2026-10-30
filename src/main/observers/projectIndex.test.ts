@@ -32,7 +32,10 @@ describe('indexProject', () => {
 
   it('records size and modification time', async () => {
     put('a.txt', 'hello')
-    expect((await indexProject(tmp)).get('a.txt')).toMatchObject({ size: 5, mtimeMs: expect.any(Number) })
+    expect((await indexProject(tmp)).get('a.txt')).toMatchObject({
+      size: 5,
+      mtimeMs: expect.any(Number)
+    })
   })
 
   it('returns an empty index for a missing folder', async () => {

@@ -20,7 +20,8 @@ export async function readSnapshot(absPath: string): Promise<FileSnapshot> {
     if (!st.isFile()) return MISSING
     if (st.size > MAX_DIFF_BYTES) return { exists: true, text: null, binary: false, tooLarge: true }
     const buf = await fs.readFile(absPath)
-    if (buf.subarray(0, BINARY_SNIFF_BYTES).includes(0)) return { exists: true, text: null, binary: true, tooLarge: false }
+    if (buf.subarray(0, BINARY_SNIFF_BYTES).includes(0))
+      return { exists: true, text: null, binary: true, tooLarge: false }
     return { exists: true, text: buf.toString('utf8'), binary: false, tooLarge: false }
   } catch {
     return MISSING
@@ -34,5 +35,13 @@ export function fileChange(relPath: string, before: FileSnapshot, after: FileSna
     return { type: 'file', path: relPath, status, lines: [], added: 0, removed: 0, tooLarge: true }
   }
   const d = diffText(before.text ?? '', after.text ?? '')
-  return { type: 'file', path: relPath, status, lines: d.lines, added: d.added, removed: d.removed, tooLarge: false }
+  return {
+    type: 'file',
+    path: relPath,
+    status,
+    lines: d.lines,
+    added: d.added,
+    removed: d.removed,
+    tooLarge: false
+  }
 }

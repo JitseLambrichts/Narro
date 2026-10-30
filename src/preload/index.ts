@@ -8,7 +8,8 @@ const api: RendererApi = {
   saveSettings: (patch) => ipcRenderer.invoke(IPC.saveSettings, patch),
   send: (text) => ipcRenderer.invoke(IPC.send, text),
   stop: () => ipcRenderer.invoke(IPC.stop),
-  resolvePermission: (requestId, allow) => ipcRenderer.invoke(IPC.resolvePermission, requestId, allow),
+  resolvePermission: (requestId, allow) =>
+    ipcRenderer.invoke(IPC.resolvePermission, requestId, allow),
   onEvent(cb) {
     const listener = (_evt: IpcRendererEvent, e: AppEvent): void => cb(e)
     ipcRenderer.on(IPC.event, listener)

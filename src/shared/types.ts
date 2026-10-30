@@ -54,7 +54,14 @@ export type AppEvent =
       activeForm: string | null
       status: TaskStatus
     }
-  | { kind: 'permission'; turnId: string; at: number; requestId: string; title: string; detail: string }
+  | {
+      kind: 'permission'
+      turnId: string
+      at: number
+      requestId: string
+      title: string
+      detail: string
+    }
   | {
       kind: 'turn-end'
       turnId: string
