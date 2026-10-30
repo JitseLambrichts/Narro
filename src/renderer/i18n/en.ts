@@ -13,5 +13,12 @@ export const t = {
     'claude-sonnet-5-5': 'Claude Sonnet 5.5'
   },
   save: 'Save',
-  cancel: 'Cancel'
+  cancel: 'Cancel',
+
+  askPlaceholder: 'Ask anything…',
+  send: 'Send',
+  stop: 'Stop',
+  stopped: 'Stopped',
+  settings: 'Settings',
+  noProject: 'No project'
 }

@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, nativeTheme, safeStorage } from 'electron'
+import { app, shell, BrowserWindow, dialog, nativeTheme, safeStorage } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -53,12 +53,24 @@ app.whenReady().then(() => {
     safeStorage.setUsePlainTextEncryption(true)
   }
   const settings = createSettingsStore(app.getPath('userData'), safeStorage)
-  registerIpc({ settings, onSettingsSaved: () => {} })
+  let win = createWindow()
+  let projectDir: string | null = null
 
-  createWindow()
+  registerIpc({
+    settings,
+    onSettingsSaved: async () => {},
+    openProject: async () => {
+      const result = await dialog.showOpenDialog(win, {
+        properties: ['openDirectory', 'createDirectory']
+      })
+      if (result.canceled || result.filePaths.length === 0) return null
+      projectDir = result.filePaths[0]
+      return projectDir
+    }
+  })
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) win = createWindow()
   })
 })
 

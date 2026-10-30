@@ -102,3 +102,135 @@
   gap: 8px;
   margin-top: 20px;
 }
+
+/* Top bar: a drag zone that leaves room for the macOS traffic lights. */
+.top-bar {
+  flex: none;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0 80px;
+  border-bottom: 1px solid var(--line);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.top-bar-title {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.icon-button {
+  position: absolute;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.icon-button:hover {
+  background: var(--line);
+  color: var(--text);
+}
+
+/* Conversation column */
+.conversation {
+  flex: 1;
+  overflow-y: auto;
+  overflow-anchor: none;
+}
+
+.conversation-column {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 24px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.turn {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.user-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.user-bubble {
+  max-width: 85%;
+  padding: 8px 14px;
+  border-radius: 16px;
+  background: var(--accent-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.agent-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.turn-error {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.turn-stopped {
+  color: var(--faint);
+  font-size: 12px;
+}
+
+/* Composer */
+.composer-dock {
+  flex: none;
+  padding: 0 16px 16px;
+}
+
+.composer {
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line2);
+  border-radius: 14px;
+  background: var(--win);
+}
+
+.composer:focus-within {
+  border-color: var(--accent-line);
+}
+
+.composer-input {
+  flex: 1;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  padding: 5px 6px;
+  max-height: 200px;
+  field-sizing: content;
+}
+
+.composer-button {
+  flex: none;
+}

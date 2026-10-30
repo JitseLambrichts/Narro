@@ -6,3 +6,7 @@ afterEach(async () => {
   const { cleanup } = await import('@testing-library/react')
   cleanup()
 })
+
+// Animations finish instantly in tests, so elements are never caught half-faded.
+const { MotionGlobalConfig } = await import('motion/react')
+MotionGlobalConfig.skipAnimations = true
