@@ -3,6 +3,7 @@
 // it calls the real hooks and writes real files, so the observers read real state.
 import { promises as fs } from 'fs'
 import { join } from 'path'
+import { DatabaseSync } from 'node:sqlite'
 import type {
   HookInput,
   Options,
@@ -13,6 +14,18 @@ import type {
 import type { QueryFn } from './session'
 
 const SESSION_ID = 'fake-session'
+const CUSTOMERS_SQL = `CREATE TABLE IF NOT EXISTS klanten (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    voornaam TEXT NOT NULL,
+    stad TEXT NOT NULL
+);
+
+INSERT INTO klanten (voornaam, stad) VALUES
+    ('Emma', 'Hasselt'),
+    ('Lucas', 'Antwerpen'),
+    ('Sofie', 'Maastricht'),
+    ('Noah', 'Gent');
+`
 const SLOW_PAUSE_MS = 5000
 const BURST_FILES = 30
 const BURST_WINDOW_MS = 1000
@@ -105,6 +118,37 @@ async function* script(
       await sleep(BURST_WINDOW_MS / BURST_FILES, signal)
     }
     yield text('Done.')
+  } else if (prompt.includes('customer list')) {
+    yield text("I'll make a small customer list.")
+    await write('klanten.sql', CUSTOMERS_SQL)
+    await tool(
+      'Bash',
+      { command: 'sqlite3 klanten.db < klanten.sql', description: 'Create the customer list' },
+      async () => {
+        const db = new DatabaseSync(join(cwd, 'klanten.db'))
+        db.exec(CUSTOMERS_SQL)
+        db.close()
+        return { stdout: '', stderr: '' }
+      }
+    )
+    yield text('Done. The **klanten** table has four customers.')
+  } else if (prompt.includes('moved to Brussel')) {
+    await tool(
+      'Bash',
+      {
+        command: `sqlite3 klanten.db "UPDATE klanten SET stad = 'Brussel' WHERE voornaam = 'Lucas'; INSERT INTO klanten (voornaam, stad) VALUES ('Mila', 'Leuven');"`,
+        description: 'Update the customer list'
+      },
+      async () => {
+        const db = new DatabaseSync(join(cwd, 'klanten.db'))
+        db.exec(
+          "UPDATE klanten SET stad = 'Brussel' WHERE voornaam = 'Lucas'; INSERT INTO klanten (voornaam, stad) VALUES ('Mila', 'Leuven');"
+        )
+        db.close()
+        return { stdout: '', stderr: '' }
+      }
+    )
+    yield text('Lucas now lives in Brussel, and I added Mila.')
   } else if (prompt.includes('Clean up')) {
     const id = nextId()
     const input = { command: 'rm -rf build' }

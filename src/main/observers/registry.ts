@@ -1,7 +1,8 @@
 import { basename, isAbsolute, relative, resolve, sep } from 'path'
-import type { CommandChange, FileChange, VisualChange } from '../../shared/types'
+import type { CommandChange, FileChange, TableChange, VisualChange } from '../../shared/types'
 import { fileChange, readSnapshot, type FileSnapshot } from './files'
 import { changedPaths, indexProject, type ProjectIndex } from './projectIndex'
+import { databaseFor, MAX_DATABASES, readDatabase, tableChanges, type DbSnapshot } from './sqlite'
 
 export const FILE_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit']
 export const TASK_TOOLS = ['TaskCreate', 'TaskUpdate', 'TaskGet', 'TaskList', 'TodoWrite']
@@ -46,7 +47,12 @@ function outputTail(response: unknown): string[] {
 
 type Pending =
   | { kind: 'file'; abs: string; rel: string; snapshot: FileSnapshot }
-  | { kind: 'command'; index: ProjectIndex; startedAt: number }
+  | {
+      kind: 'command'
+      index: ProjectIndex
+      startedAt: number
+      databases: Map<string, DbSnapshot | null>
+    }
 
 const MISSING: FileSnapshot = { exists: false, text: null, binary: false, tooLarge: false }
 
@@ -101,7 +107,8 @@ export class ToolObserver {
 
     if (toolName === 'Bash') {
       const index = await indexProject(this.ctx.projectDir)
-      this.pending.set(toolUseId, { kind: 'command', index, startedAt: Date.now() })
+      const databases = await this.readDatabases([...index.keys()])
+      this.pending.set(toolUseId, { kind: 'command', index, startedAt: Date.now(), databases })
       const change: CommandChange = {
         type: 'command',
         command: str(input.command) ?? '',
@@ -147,6 +154,7 @@ export class ToolObserver {
         state?.kind === 'command'
           ? changedPaths(state.index, await indexProject(this.ctx.projectDir))
           : []
+      const tables = state?.kind === 'command' ? await this.tableChanges(state, changedFiles) : []
       const change: CommandChange = {
         type: 'command',
         command: str(input.command) ?? '',
@@ -156,9 +164,36 @@ export class ToolObserver {
         changedFiles,
         outputTail: outputTail(response)
       }
-      return [this.visual(toolUseId, `command:${toolUseId}`, phase, change)]
+      return [
+        this.visual(toolUseId, `command:${toolUseId}`, phase, change),
+        ...tables.map((t) => this.visual(toolUseId, `table:${t.database}:${t.table}`, 'done', t))
+      ]
     }
 
     return []
+  }
+
+  // Snapshots of the SQLite databases among these project paths, keyed by relative path.
+  private async readDatabases(paths: string[]): Promise<Map<string, DbSnapshot | null>> {
+    const databases = [...new Set(paths.map(databaseFor).filter((p): p is string => p !== null))]
+    const snapshots = new Map<string, DbSnapshot | null>()
+    for (const db of databases.slice(0, MAX_DATABASES)) {
+      snapshots.set(db, await readDatabase(resolve(this.ctx.projectDir, db)))
+    }
+    return snapshots
+  }
+
+  // What a command did to the data in the project's databases.
+  private async tableChanges(
+    state: Extract<Pending, { kind: 'command' }>,
+    changedFiles: string[]
+  ): Promise<TableChange[]> {
+    const after = await this.readDatabases(changedFiles)
+    return [...after].flatMap(([db, snapshot]) => {
+      const before = state.databases.get(db) ?? null
+      // A database that was there but could not be read before has no baseline to compare with.
+      if (before === null && state.index.has(db)) return []
+      return tableChanges(db, before, snapshot)
+    })
   }
 }

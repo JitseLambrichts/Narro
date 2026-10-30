@@ -1,4 +1,4 @@
-import type { FileChange } from '../../shared/types'
+import type { FileChange, TableChange } from '../../shared/types'
 import { t } from '../i18n/en'
 import type { CardModel } from './conversation'
 
@@ -18,6 +18,18 @@ function fileTitle(change: FileChange, status: CardModel['status']): string {
     case 'deleted':
       return working ? t.card.deleting(name) : t.card.deleted(name)
   }
+}
+
+function tableTitle(change: TableChange): string {
+  const { table, added, changed, removed, newColumns } = change
+  if (change.status === 'created') return t.card.createdTable(table)
+  if (change.status === 'deleted') return t.card.deletedTable(table)
+  const kinds = [added, changed, removed, newColumns.length].filter((n) => n > 0).length
+  if (kinds !== 1) return t.card.updatedTable(table)
+  if (added > 0) return t.card.addedRows(added, table)
+  if (removed > 0) return t.card.removedRows(removed, table)
+  if (changed > 0) return t.card.changedRows(changed, table)
+  return t.card.addedColumns(newColumns.length, table)
 }
 
 export function cardTitle(card: CardModel): string {
@@ -41,5 +53,7 @@ export function cardTitle(card: CardModel): string {
       if (!first) return t.card.lookedAround
       return rest.length > 0 ? t.card.activityMore(first, rest.length) : first
     }
+    case 'table':
+      return tableTitle(change)
   }
 }

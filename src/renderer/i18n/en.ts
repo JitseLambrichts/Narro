@@ -1,3 +1,5 @@
+const rows = (n: number): string => (n === 1 ? '1 row' : `${n} rows`)
+
 // Every piece of interface text lives here, in English.
 export const t = {
   emptyTitle: 'Open a project to start',
@@ -35,10 +37,15 @@ export const t = {
 
   show: 'Show',
   hide: 'Hide',
+  showCode: 'Show code',
+  hideCode: 'Hide code',
   allow: 'Allow',
   allowed: 'Allowed',
   tooLargeNote: 'This file is too large or not text, so only the change is listed.',
   moreLines: (n: number) => `…and ${n} more lines`,
+  moreRows: (n: number) => `…and ${n} more changed ${n === 1 ? 'row' : 'rows'}`,
+  tableMeta: (database: string, total: number) =>
+    `${database} · ${total} ${total === 1 ? 'row' : 'rows'}`,
   seconds: (ms: number) => `${(ms / 1000).toFixed(1)} s`,
   changedFiles: 'Changed files',
   tasks: 'Tasks',
@@ -59,6 +66,14 @@ export const t = {
     commandFailed: 'A command failed',
     stepFailed: (description: string) => `${description} failed`,
     activityMore: (first: string, more: number) => `${first} and ${more} more`,
-    lookedAround: 'Looked around'
+    lookedAround: 'Looked around',
+    createdTable: (table: string) => `Created table ${table}`,
+    deletedTable: (table: string) => `Deleted table ${table}`,
+    addedRows: (n: number, table: string) => `Added ${rows(n)} to ${table}`,
+    removedRows: (n: number, table: string) => `Removed ${rows(n)} from ${table}`,
+    changedRows: (n: number, table: string) => `Changed ${rows(n)} in ${table}`,
+    addedColumns: (n: number, table: string) =>
+      `Added ${n === 1 ? 'a column' : `${n} columns`} to ${table}`,
+    updatedTable: (table: string) => `Updated table ${table}`
   }
 }

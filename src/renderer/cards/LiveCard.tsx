@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import type { CardModel } from '../state/conversation'
 import { cardTitle } from '../state/cardTitle'
@@ -6,32 +7,72 @@ import { t } from '../i18n/en'
 import { FileCard } from './FileCard'
 import { hasFileBody } from './fileBody'
 import { ChangeStats, FilesGroupCard } from './FilesGroupCard'
-import { CommandCard } from './CommandCard'
+import { CommandCode, CommandSummary } from './CommandCard'
 import { ActivityCard } from './ActivityCard'
+import { TableCard, TableStats } from './TableCard'
 
-function hasBody(card: CardModel): boolean {
+// What a card shows without any code: the visual part.
+function hasSummary(card: CardModel): boolean {
   if (card.files !== null) return true
+  switch (card.change.type) {
+    case 'file':
+      return false
+    case 'command':
+      return card.change.changedFiles.length > 0
+    case 'activity':
+      return card.change.items.length > 1
+    case 'table':
+      return true
+  }
+}
+
+// Code stays out of sight until someone asks for it.
+function hasCode(card: CardModel): boolean {
+  if (card.files !== null) return false
   switch (card.change.type) {
     case 'file':
       return hasFileBody(card.change)
     case 'command':
-      return true
-    case 'activity':
-      return card.change.items.length > 1
+      return card.change.command !== ''
+    default:
+      return false
   }
 }
 
-function Body(p: { card: CardModel }): React.JSX.Element | null {
+function Summary(p: { card: CardModel }): React.JSX.Element | null {
   const { card } = p
   if (card.files !== null) return <FilesGroupCard files={card.files} working={card.working} />
   switch (card.change.type) {
-    case 'file':
-      return <FileCard change={card.change} />
     case 'command':
-      return <CommandCard change={card.change} />
+      return card.change.changedFiles.length > 0 ? <CommandSummary change={card.change} /> : null
     case 'activity':
       return <ActivityCard change={card.change} />
+    case 'table':
+      return <TableCard change={card.change} />
+    default:
+      return null
   }
+}
+
+function Code(p: { card: CardModel }): React.JSX.Element | null {
+  const { change } = p.card
+  if (change.type === 'file') return <FileCard change={change} />
+  if (change.type === 'command') return <CommandCode change={change} />
+  return null
+}
+
+function Stats(p: { card: CardModel }): React.JSX.Element | null {
+  const { card } = p
+  if (card.files !== null || card.status === 'working') return null
+  const { change } = card
+  if (change.type === 'file' && !change.tooLarge) {
+    return <ChangeStats added={change.added} removed={change.removed} />
+  }
+  if (change.type === 'command' && change.durationMs !== null) {
+    return <span className="command-time">{t.seconds(change.durationMs)}</span>
+  }
+  if (change.type === 'table') return <TableStats change={change} />
+  return null
 }
 
 export function LiveCard(p: {
@@ -41,10 +82,12 @@ export function LiveCard(p: {
 }): React.JSX.Element {
   const { card } = p
   const m = motionFor(useReducedMotion() ?? false)
-  const body = hasBody(card)
+  const [codeOpen, setCodeOpen] = useState(false)
+  const summary = hasSummary(card)
+  const code = hasCode(card)
   const pill = p.collapsed && !card.expanded
-  const showBody = body && !pill
-  const single = card.files === null && card.change.type === 'file' ? card.change : null
+  const showCode = code && codeOpen && !pill
+  const showBody = !pill && (summary || showCode)
 
   return (
     <motion.div
@@ -58,10 +101,13 @@ export function LiveCard(p: {
       <motion.div layout="position" transition={{ layout: m.layout }} className="card-head">
         <span className={`dot ${card.status}`} aria-hidden="true" />
         <span className="card-title">{cardTitle(card)}</span>
-        {single && !pill && card.status !== 'working' && !single.tooLarge && (
-          <ChangeStats added={single.added} removed={single.removed} />
+        {!pill && <Stats card={card} />}
+        {code && !pill && (
+          <button type="button" className="link-button" onClick={() => setCodeOpen(!codeOpen)}>
+            {codeOpen ? t.hideCode : t.showCode}
+          </button>
         )}
-        {p.collapsed && body && (
+        {p.collapsed && (summary || code) && (
           <button type="button" className="link-button" onClick={p.onToggle}>
             {pill ? t.show : t.hide}
           </button>
@@ -77,7 +123,8 @@ export function LiveCard(p: {
             animate={{ opacity: 1, transition: m.enter.transition }}
             exit={m.exit}
           >
-            <Body card={card} />
+            {summary && <Summary card={card} />}
+            {showCode && <Code card={card} />}
           </motion.div>
         )}
       </AnimatePresence>
