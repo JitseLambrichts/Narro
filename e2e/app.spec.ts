@@ -82,6 +82,15 @@ test.describe('with the scripted agent', () => {
     await expect(win.getByText('Done.')).toBeVisible()
   })
 
+  test('answers are shown as formatted text, without markdown signs', async () => {
+    await start()
+    await send('Write notes')
+    const answer = win.locator('.agent-text').last()
+    await expect(answer.locator('strong')).toHaveText('notes.md')
+    await expect(answer.locator('li')).toHaveText(['notes.md', 'out.txt'])
+    await expect(answer).not.toContainText('**')
+  })
+
   test('sending the next message collapses the previous cards; Show reopens them', async () => {
     await start()
     await send('Write notes')

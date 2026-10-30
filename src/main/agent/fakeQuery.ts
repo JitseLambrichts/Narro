@@ -148,7 +148,7 @@ async function* script(
       return { stdout: 'ok', stderr: '' }
     })
     await pause()
-    yield text('Done.')
+    yield text('Done. I wrote **notes.md** and ran the report:\n\n- notes.md\n- out.txt\n')
   }
 
   yield {
