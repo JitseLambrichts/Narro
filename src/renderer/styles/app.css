@@ -357,3 +357,63 @@
     color: var(--muted);
   }
 }
+
+/* Pills above the input: the step in progress and the lines changed this turn */
+.composer-status {
+  max-width: 680px;
+  margin: 0 auto 8px;
+  display: flex;
+  gap: 8px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 60%;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--win);
+  color: var(--muted);
+  font-size: 12px;
+  animation: pill-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.status-step {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-blocks {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.block {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+}
+
+.block.add {
+  background: var(--green);
+}
+
+.block.del {
+  background: var(--red);
+}
+
+@keyframes pill-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-pill {
+    animation: none;
+  }
+}

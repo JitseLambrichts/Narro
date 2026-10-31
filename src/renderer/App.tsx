@@ -4,6 +4,7 @@ import { initialState, reduce } from './state/conversation'
 import { useDirector } from './director/useDirector'
 import { Conversation } from './ui/Conversation'
 import { Composer } from './ui/Composer'
+import { ComposerStatus } from './ui/ComposerStatus'
 import { EmptyState } from './ui/EmptyState'
 import { SettingsDialog } from './ui/SettingsDialog'
 import { TopBar } from './ui/TopBar'
@@ -76,6 +77,7 @@ function App(): React.JSX.Element {
         <EmptyState onOpen={openProject} />
       )}
       <div className="composer-dock">
+        {projectDir && <ComposerStatus turn={state.turns.at(-1)} />}
         <Composer
           running={running}
           disabled={!projectDir}

@@ -46,6 +46,8 @@ export const t = {
   moreRows: (n: number) => `…and ${n} more ${n === 1 ? 'row' : 'rows'}`,
   tableMeta: (database: string, total: number) => `${database} · ${rows(total)}`,
   appliedIn: (time: string) => `Applied in ${time}`,
+  linesChanged: (added: number, removed: number) =>
+    `${added} lines added, ${removed} lines removed`,
   schema: 'Schema',
   nullValue: 'NULL',
   tables: 'Tables',
