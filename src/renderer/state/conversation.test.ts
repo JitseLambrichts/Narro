@@ -22,7 +22,8 @@ const cmd: Change = {
   status: 'running',
   durationMs: null,
   changedFiles: [],
-  outputTail: []
+  outputTail: [],
+  tables: []
 }
 
 function change(

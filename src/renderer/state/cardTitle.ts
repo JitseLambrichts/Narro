@@ -20,16 +20,20 @@ function fileTitle(change: FileChange, status: CardModel['status']): string {
   }
 }
 
-function tableTitle(change: TableChange): string {
-  const { table, added, changed, removed, newColumns } = change
-  if (change.status === 'created') return t.card.createdTable(table)
-  if (change.status === 'deleted') return t.card.deletedTable(table)
-  const kinds = [added, changed, removed, newColumns.length].filter((n) => n > 0).length
-  if (kinds !== 1) return t.card.updatedTable(table)
-  if (added > 0) return t.card.addedRows(added, table)
-  if (removed > 0) return t.card.removedRows(removed, table)
-  if (changed > 0) return t.card.changedRows(changed, table)
-  return t.card.addedColumns(newColumns.length, table)
+// One line on what happened to a table, for people who don't read SQL.
+export function tableSummary(change: TableChange): string {
+  const { table, added, changed, removed, filled, newColumns, totalRows } = change
+  if (change.status === 'created') return t.table.created(table, totalRows)
+  if (change.status === 'deleted') return t.table.deleted(table)
+  const parts: string[] = []
+  if (newColumns.length > 0) {
+    const columns = t.table.addedColumns(newColumns)
+    parts.push(filled > 0 ? `${columns}, ${t.table.filledIn(filled, totalRows)}` : columns)
+  }
+  if (added > 0) parts.push(t.table.rowsAdded(added))
+  if (changed > 0) parts.push(t.table.rowsChanged(changed))
+  if (removed > 0) parts.push(t.table.rowsRemoved(removed))
+  return parts.length > 0 ? parts.join(' · ') : t.table.unchanged(table)
 }
 
 export function cardTitle(card: CardModel): string {
@@ -43,6 +47,9 @@ export function cardTitle(card: CardModel): string {
     case 'file':
       return fileTitle(change, card.status)
     case 'command':
+      if (!change.description && change.tables.length > 0 && card.status !== 'failed') {
+        return t.card.updatedDatabase
+      }
       if (change.description) {
         return card.status === 'failed' ? t.card.stepFailed(change.description) : change.description
       }
@@ -53,7 +60,5 @@ export function cardTitle(card: CardModel): string {
       if (!first) return t.card.lookedAround
       return rest.length > 0 ? t.card.activityMore(first, rest.length) : first
     }
-    case 'table':
-      return tableTitle(change)
   }
 }

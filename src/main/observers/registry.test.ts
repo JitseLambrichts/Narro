@@ -3,7 +3,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { DatabaseSync } from 'node:sqlite'
-import { activityLabel, ToolObserver } from './registry'
+import { activityLabel, PROGRESS_POLL_MS, ToolObserver } from './registry'
+import type { VisualChange } from '../../shared/types'
 
 let tmp: string
 let o: ToolObserver
@@ -72,7 +73,8 @@ describe('ToolObserver', () => {
       status: 'running',
       durationMs: null,
       changedFiles: [],
-      outputTail: []
+      outputTail: [],
+      tables: []
     })
     writeFileSync(join(tmp, 'out.txt'), 'x')
     const [d] = await o.after('t2', 'Bash', input, { stdout: '1\n2\n3\n4\n5\n6\n7' }, 1200, false)
@@ -121,7 +123,7 @@ describe('ToolObserver', () => {
 })
 
 describe('ToolObserver and databases', () => {
-  it('a command that creates a database shows its new table', async () => {
+  it('a command that creates a database carries its new table', async () => {
     const input = {
       command: 'sqlite3 klanten.db < klanten.sql',
       description: 'Create the customer list'
@@ -130,17 +132,16 @@ describe('ToolObserver and databases', () => {
     const db = new DatabaseSync(join(tmp, 'klanten.db'))
     db.exec("CREATE TABLE klanten (naam TEXT); INSERT INTO klanten VALUES ('Emma'), ('Lucas');")
     db.close()
-    const [command, table] = await o.after('t5', 'Bash', input, { stdout: '' }, 30, false)
-    expect(command.change).toMatchObject({ type: 'command', changedFiles: ['klanten.db'] })
-    expect(table).toMatchObject({
-      toolUseId: 't5',
-      phase: 'done',
-      targetKey: 'table:klanten.db:klanten',
-      change: { type: 'table', status: 'created', added: 2, columns: ['naam'] }
+    const changes = await o.after('t5', 'Bash', input, { stdout: '' }, 30, false)
+    expect(changes).toHaveLength(1)
+    expect(changes[0].change).toMatchObject({
+      type: 'command',
+      changedFiles: ['klanten.db'],
+      tables: [{ table: 'klanten', status: 'created', added: 2, columns: ['naam'] }]
     })
   })
 
-  it('a command that changes rows shows only what changed', async () => {
+  it('a command that changes rows carries only what changed', async () => {
     const db = new DatabaseSync(join(tmp, 'shop.db'))
     db.exec(
       "CREATE TABLE klanten (naam TEXT, stad TEXT); INSERT INTO klanten VALUES ('Emma', 'Hasselt'), ('Lucas', 'Gent');"
@@ -151,20 +152,53 @@ describe('ToolObserver and databases', () => {
     const again = new DatabaseSync(join(tmp, 'shop.db'))
     again.exec("UPDATE klanten SET stad = 'Brussel' WHERE naam = 'Lucas'")
     again.close()
-    const [, table] = await o.after('t6', 'Bash', input, { stdout: '' }, 30, false)
-    expect(table.change).toMatchObject({
-      type: 'table',
-      status: 'modified',
-      changed: 1,
-      rows: [{ kind: 'changed', cells: ['Lucas', 'Brussel'], changedCells: [1] }]
+    const [command] = await o.after('t6', 'Bash', input, { stdout: '' }, 30, false)
+    expect(command.change).toMatchObject({
+      tables: [
+        {
+          status: 'modified',
+          changed: 1,
+          rows: [{ kind: 'changed', cells: ['Lucas', 'Brussel'], changedCells: [1] }]
+        }
+      ]
     })
   })
 
-  it('a command that leaves the data alone adds no table card', async () => {
+  it('a command that leaves the data alone carries no tables', async () => {
     const db = new DatabaseSync(join(tmp, 'shop.db'))
     db.exec('CREATE TABLE t (x); INSERT INTO t VALUES (1);')
     db.close()
     await o.before('t7', 'Bash', { command: 'ls' })
-    expect(await o.after('t7', 'Bash', { command: 'ls' }, { stdout: '' }, 5, false)).toHaveLength(1)
+    const [command] = await o.after('t7', 'Bash', { command: 'ls' }, { stdout: '' }, 5, false)
+    expect(command.change).toMatchObject({ tables: [] })
+  })
+
+  it('reports rows while the command is still running', async () => {
+    const progress: VisualChange[] = []
+    const watched = new ToolObserver({
+      projectDir: tmp,
+      newId: seq(),
+      onProgress: (c) => progress.push(c)
+    })
+    const input = { command: 'python import.py', description: 'Import customers' }
+    await watched.before('t8', 'Bash', input)
+    const db = new DatabaseSync(join(tmp, 'live.db'))
+    db.exec("CREATE TABLE klanten (naam TEXT); INSERT INTO klanten VALUES ('Emma');")
+    await new Promise((r) => setTimeout(r, PROGRESS_POLL_MS * 3))
+    db.exec("INSERT INTO klanten VALUES ('Lucas');")
+    db.close()
+    await new Promise((r) => setTimeout(r, PROGRESS_POLL_MS * 3))
+    expect(progress.length).toBeGreaterThanOrEqual(2)
+    expect(progress[0]).toMatchObject({
+      phase: 'progress',
+      targetKey: 'command:t8',
+      change: { status: 'running', tables: [{ table: 'klanten', added: 1 }] }
+    })
+    expect(progress.at(-1)!.change).toMatchObject({ tables: [{ added: 2 }] })
+
+    await watched.after('t8', 'Bash', input, { stdout: '' }, 900, false)
+    const count = progress.length
+    await new Promise((r) => setTimeout(r, PROGRESS_POLL_MS * 2))
+    expect(progress).toHaveLength(count)
   })
 })

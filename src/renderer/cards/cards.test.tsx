@@ -43,7 +43,8 @@ const command: CardModel = {
     status: 'done',
     durationMs: 1200,
     changedFiles: ['out.txt'],
-    outputTail: ['ok']
+    outputTail: ['ok'],
+    tables: []
   }
 }
 
@@ -53,22 +54,69 @@ const klanten: TableChange = {
   table: 'klanten',
   status: 'modified',
   columns: ['id', 'naam', 'stad', 'email'],
+  types: ['integer', 'text', 'text', 'text'],
   newColumns: ['email'],
+  schema: 'ALTER TABLE klanten ADD COLUMN email TEXT',
   rows: [
-    { kind: 'added', cells: ['4', 'Noah', 'Gent', 'noah@example.com'], changedCells: [] },
-    { kind: 'changed', cells: ['2', 'Lucas', 'Brussel', null], changedCells: [2] },
-    { kind: 'removed', cells: ['1', 'Emma', 'Hasselt', null], changedCells: [] }
+    {
+      key: '4',
+      kind: 'added',
+      cells: ['4', 'Noah', 'Gent', 'noah@x.be'],
+      changedCells: [],
+      filledCells: []
+    },
+    {
+      key: '2',
+      kind: 'changed',
+      cells: ['2', 'Lucas', 'Brussel', null],
+      changedCells: [2],
+      filledCells: []
+    },
+    {
+      key: '3',
+      kind: 'same',
+      cells: ['3', 'Sofie', 'Gent', 'sofie@x.be'],
+      changedCells: [],
+      filledCells: [3]
+    },
+    {
+      key: '1',
+      kind: 'removed',
+      cells: ['1', 'Emma', 'Hasselt', null],
+      changedCells: [],
+      filledCells: []
+    }
   ],
   added: 1,
   changed: 1,
   removed: 1,
+  filled: 1,
   moreRows: 0,
   totalRows: 3
 }
-const tableCard: CardModel = {
-  ...doneFileCard,
-  targetKey: 'table:shop.db:klanten',
-  change: klanten
+const orders: TableChange = {
+  ...klanten,
+  table: 'orders',
+  status: 'created',
+  columns: ['id', 'total'],
+  types: ['integer', 'real'],
+  newColumns: [],
+  schema: 'CREATE TABLE orders (id INTEGER, total REAL)',
+  rows: [{ key: '1', kind: 'added', cells: ['1', '9.5'], changedCells: [], filledCells: [] }],
+  added: 1,
+  changed: 0,
+  removed: 0,
+  filled: 0,
+  totalRows: 1
+}
+const migration: CardModel = {
+  ...command,
+  change: {
+    ...(command.change as CommandChange),
+    description: 'Add an email column',
+    changedFiles: ['shop.db'],
+    tables: [klanten]
+  }
 }
 
 describe('LiveCard', () => {
@@ -216,49 +264,103 @@ describe('LiveCard', () => {
   })
 })
 
-describe('TableCard', () => {
-  it('shows the changed rows as a table, without any code', () => {
-    const { container } = render(<LiveCard card={tableCard} collapsed={false} onToggle={vi.fn()} />)
-    expect(screen.getByText('Updated table klanten')).toBeVisible()
+describe('Database card', () => {
+  it('shows the table a command changed, without any code', () => {
+    const { container } = render(<LiveCard card={migration} collapsed={false} onToggle={vi.fn()} />)
+    expect(screen.getByText('Add an email column')).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'klanten' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
-      'id',
-      'naam',
-      'stad',
-      'email'
+      '',
+      'idinteger',
+      'naamtext',
+      'stadtext',
+      'emailtext'
     ])
-    expect(screen.getByRole('cell', { name: 'Noah' })).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'Show code' })).toBeNull()
     expect(container.querySelector('tr[data-kind="added"]')?.textContent).toContain('Noah')
     expect(container.querySelector('tr[data-kind="removed"]')?.textContent).toContain('Emma')
+    expect(screen.queryByText('shop.db')).toBeNull()
   })
 
-  it('marks changed cells and new columns', () => {
-    const { container } = render(<LiveCard card={tableCard} collapsed={false} onToggle={vi.fn()} />)
-    const changed = container.querySelectorAll('td[data-changed]')
-    expect([...changed].map((td) => td.textContent)).toEqual(['Brussel'])
-    expect(screen.getByRole('columnheader', { name: 'email' })).toHaveAttribute('data-new', 'true')
+  it('marks changed cells, the new column, filled cells and empty values', () => {
+    const { container } = render(<LiveCard card={migration} collapsed={false} onToggle={vi.fn()} />)
+    expect([...container.querySelectorAll('td[data-changed]')].map((td) => td.textContent)).toEqual(
+      ['Brussel']
+    )
+    expect([...container.querySelectorAll('td[data-filled]')].map((td) => td.textContent)).toEqual([
+      'sofie@x.be'
+    ])
+    expect(screen.getByRole('columnheader', { name: 'emailtext' })).toHaveAttribute(
+      'data-new',
+      'true'
+    )
+    expect(screen.getAllByText('NULL')).toHaveLength(2)
   })
 
-  it('shows the database, the row count and the counts of what changed', () => {
-    render(
+  it('shows the schema change and a plain summary', () => {
+    render(<LiveCard card={migration} collapsed={false} onToggle={vi.fn()} />)
+    expect(screen.getByText('ALTER TABLE klanten ADD COLUMN email TEXT')).toBeVisible()
+    expect(
+      screen.getByText(
+        'Added column email, filled in 1 of 3 · 1 row added · 1 row changed · 1 row removed'
+      )
+    ).toBeVisible()
+    expect(screen.getByText('shop.db · 3 rows')).toBeVisible()
+    expect(screen.getByText('Applied in 1.2s')).toBeVisible()
+  })
+
+  it('has a tab per table and follows the newest one while the command runs', async () => {
+    const running: CardModel = {
+      ...migration,
+      status: 'working',
+      working: ['command:u1'],
+      startedAt: Date.now(),
+      change: {
+        ...(migration.change as CommandChange),
+        status: 'running',
+        durationMs: null,
+        tables: [klanten, orders]
+      }
+    }
+    const { container } = render(<LiveCard card={running} collapsed={false} onToggle={vi.fn()} />)
+    expect(screen.getByRole('tab', { name: 'orders' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'orders' }).querySelector('.spinner')).not.toBeNull()
+    expect(screen.getByRole('tab', { name: 'klanten' }).querySelector('.db-check')).not.toBeNull()
+    expect(screen.getByText(/^Running /)).toBeVisible()
+    await userEvent.setup().click(screen.getByRole('tab', { name: 'klanten' }))
+    expect(container.querySelector('tr[data-kind="added"]')?.textContent).toContain('Noah')
+  })
+
+  it('rows come in one after another and keep their place when more arrive', () => {
+    const { container, rerender } = render(
+      <LiveCard card={migration} collapsed={false} onToggle={vi.fn()} />
+    )
+    const first = container.querySelector('tbody tr')
+    const delays = [...container.querySelectorAll<HTMLElement>('tbody tr')].map((tr) =>
+      tr.style.getPropertyValue('--i')
+    )
+    expect(delays).toEqual(['0', '1', '2', '3'])
+    const more: TableChange = {
+      ...klanten,
+      rows: [
+        ...klanten.rows,
+        {
+          key: '5',
+          kind: 'added',
+          cells: ['5', 'Mila', 'Leuven', null],
+          changedCells: [],
+          filledCells: []
+        }
+      ]
+    }
+    rerender(
       <LiveCard
-        card={{ ...tableCard, change: { ...klanten, moreRows: 7 } }}
+        card={{ ...migration, change: { ...(migration.change as CommandChange), tables: [more] } }}
         collapsed={false}
         onToggle={vi.fn()}
       />
     )
-    expect(screen.getByText('shop.db · 3 rows · …and 7 more changed rows')).toBeVisible()
-    expect(screen.getByText('+1')).toBeVisible()
-    expect(screen.getByText('~1')).toBeVisible()
-    expect(screen.getByText('−1')).toBeVisible()
-  })
-
-  it('rows come in one after another', () => {
-    const { container } = render(<LiveCard card={tableCard} collapsed={false} onToggle={vi.fn()} />)
-    const delays = [...container.querySelectorAll<HTMLElement>('tbody tr')].map((tr) =>
-      tr.style.getPropertyValue('--i')
-    )
-    expect(delays).toEqual(['0', '1', '2'])
+    expect(container.querySelector('tbody tr')).toBe(first)
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(5)
   })
 })
 

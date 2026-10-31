@@ -109,27 +109,51 @@ test.describe('with the scripted agent', () => {
   test('a new database table appears as rows, with the code out of sight', async () => {
     await start()
     await send('Make a customer list')
-    const table = win.getByTestId('live-card').filter({ hasText: 'Created table klanten' })
-    await expect(table.locator('tbody tr[data-kind="added"]')).toHaveCount(4)
-    await expect(table.getByRole('cell', { name: 'Emma' })).toBeVisible()
-    await expect(table.getByText('klanten.db · 4 rows')).toBeVisible()
-    await expect(win.getByText(/CREATE TABLE/)).toHaveCount(0)
+    const card = win.getByTestId('live-card').filter({ hasText: 'Create the customer list' })
+    await expect(card.getByText('Applied in')).toBeVisible()
+    await expect(card.getByRole('tab', { name: 'klanten' })).toBeVisible()
+    await expect(card.locator('tbody tr[data-kind="added"]')).toHaveCount(4)
+    await expect(card.getByRole('cell', { name: 'Emma' })).toBeVisible()
+    await expect(card.getByText('Created klanten with 4 rows')).toBeVisible()
+    await expect(card.getByText(/^CREATE TABLE klanten/)).toBeVisible()
     await expect(win.getByText('sqlite3 klanten.db < klanten.sql')).toHaveCount(0)
 
     const sql = win.getByTestId('live-card').filter({ hasText: 'Created klanten.sql' })
+    await expect(sql.getByText(/INSERT INTO/)).toHaveCount(0)
     await sql.getByRole('button', { name: 'Show code' }).click()
-    await expect(sql.getByText(/CREATE TABLE/)).toBeVisible()
+    await expect(sql.getByText(/INSERT INTO/)).toBeVisible()
   })
 
-  test('changed cells and new rows are marked in the table', async () => {
+  test('rows appear while the command is still running', async () => {
     await start()
     await send('Make a customer list')
-    await expect(win.getByText('Created table klanten')).toBeVisible()
+    const card = win.getByTestId('live-card').filter({ hasText: 'Create the customer list' })
+    await expect(card.getByText(/^Running /)).toBeVisible()
+    await expect(card.locator('tbody tr')).not.toHaveCount(0)
+    const whileRunning = await card.locator('tbody tr').count()
+    expect(whileRunning).toBeLessThan(4)
+    await expect(card.getByText('Applied in')).toBeVisible()
+    await expect(card.locator('tbody tr')).toHaveCount(4)
+  })
+
+  test('a new column fills in, and changed cells and new rows are marked', async () => {
+    await start()
+    await send('Make a customer list')
+    await expect(win.getByText('Created klanten with 4 rows')).toBeVisible()
     await expect(win.getByRole('button', { name: 'Send' })).toBeVisible()
+
+    await send('Add an email column')
+    const column = win.getByTestId('live-card').filter({ hasText: 'Add an email column' })
+    await expect(column.getByText('Applied in')).toBeVisible()
+    await expect(column.locator('th[data-new]')).toContainText('email')
+    await expect(column.locator('td[data-filled]')).toHaveCount(4)
+    await expect(column.getByText('Added column email, filled in 4 of 4')).toBeVisible()
+    await expect(win.getByRole('button', { name: 'Send' })).toBeVisible()
+
     await send('Lucas moved to Brussel')
-    const table = win.getByTestId('live-card').filter({ hasText: 'Updated table klanten' })
-    await expect(table.locator('td[data-changed]')).toHaveText(['Brussel'])
-    await expect(table.locator('tr[data-kind="added"]')).toContainText('Mila')
+    const update = win.getByTestId('live-card').filter({ hasText: 'Update the customer list' })
+    await expect(update.locator('td[data-changed]')).toHaveText(['Brussel'])
+    await expect(update.locator('tr[data-kind="added"]')).toContainText('Mila')
   })
 
   test('Stop ends a running turn', async () => {

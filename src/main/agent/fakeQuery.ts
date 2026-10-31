@@ -26,6 +26,14 @@ INSERT INTO klanten (voornaam, stad) VALUES
     ('Sofie', 'Maastricht'),
     ('Noah', 'Gent');
 `
+const CUSTOMERS = [
+  ['Emma', 'Hasselt'],
+  ['Lucas', 'Antwerpen'],
+  ['Sofie', 'Maastricht'],
+  ['Noah', 'Gent']
+]
+// Long enough between database writes that Narro shows them arriving one by one.
+const ROW_PAUSE_MS = 400
 const SLOW_PAUSE_MS = 5000
 const BURST_FILES = 30
 const BURST_WINDOW_MS = 1000
@@ -125,13 +133,45 @@ async function* script(
       'Bash',
       { command: 'sqlite3 klanten.db < klanten.sql', description: 'Create the customer list' },
       async () => {
+        // Row by row, with pauses, like a real import that takes a while.
         const db = new DatabaseSync(join(cwd, 'klanten.db'))
-        db.exec(CUSTOMERS_SQL)
+        db.exec(CUSTOMERS_SQL.slice(0, CUSTOMERS_SQL.indexOf('INSERT')))
+        for (const [name, city] of CUSTOMERS) {
+          await sleep(ROW_PAUSE_MS, signal)
+          db.prepare('INSERT INTO klanten (voornaam, stad) VALUES (?, ?)').run(name, city)
+        }
         db.close()
         return { stdout: '', stderr: '' }
       }
     )
     yield text('Done. The **klanten** table has four customers.')
+  } else if (prompt.includes('email column')) {
+    yield text('I will add an email column and fill it in for every customer.')
+    await tool(
+      'Bash',
+      {
+        command: `sqlite3 klanten.db "ALTER TABLE klanten ADD COLUMN email TEXT; UPDATE klanten SET email = lower(voornaam) || '@example.com';"`,
+        description: 'Add an email column'
+      },
+      async () => {
+        const db = new DatabaseSync(join(cwd, 'klanten.db'))
+        db.exec('ALTER TABLE klanten ADD COLUMN email TEXT')
+        const ids = db.prepare('SELECT id, voornaam FROM klanten').all() as {
+          id: number
+          voornaam: string
+        }[]
+        for (const { id, voornaam } of ids) {
+          await sleep(ROW_PAUSE_MS, signal)
+          db.prepare('UPDATE klanten SET email = ? WHERE id = ?').run(
+            `${voornaam.toLowerCase()}@example.com`,
+            id
+          )
+        }
+        db.close()
+        return { stdout: '', stderr: '' }
+      }
+    )
+    yield text('Every customer now has an **email** address.')
   } else if (prompt.includes('moved to Brussel')) {
     await tool(
       'Bash',

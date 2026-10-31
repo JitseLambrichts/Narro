@@ -25,6 +25,8 @@ export interface CommandChange {
   durationMs: number | null
   changedFiles: string[]
   outputTail: string[]
+  // What the command did to the data in the project's databases, updated while it runs.
+  tables: TableChange[]
 }
 
 export interface ActivityChange {
@@ -32,12 +34,16 @@ export interface ActivityChange {
   items: string[]
 }
 
-// One row of a database table that changed. Cells follow TableChange.columns.
+// One row of a database table. Cells follow TableChange.columns.
 export interface TableRow {
-  kind: 'added' | 'changed' | 'removed'
+  key: string
+  // 'same' rows are shown for context, for example while a new column fills in.
+  kind: 'added' | 'changed' | 'removed' | 'same'
   cells: (string | null)[]
-  // Indexes of the cells whose value changed (only for kind 'changed').
+  // Cells of existing columns whose value changed.
   changedCells: number[]
+  // Cells of new columns that received a value.
+  filledCells: number[]
 }
 
 export interface TableChange {
@@ -46,17 +52,22 @@ export interface TableChange {
   table: string
   status: 'created' | 'modified' | 'deleted'
   columns: string[]
+  // Declared column types, lowercase ('' when a column has none).
+  types: string[]
   newColumns: string[]
+  // The SQL that created the table or added its new columns.
+  schema: string | null
   rows: TableRow[]
   added: number
   changed: number
   removed: number
+  filled: number
   // Changed rows that are not in `rows`, to keep big changes light.
   moreRows: number
   totalRows: number
 }
 
-export type Change = FileChange | CommandChange | ActivityChange | TableChange
+export type Change = FileChange | CommandChange | ActivityChange
 
 // 'progress' updates a card that is still working, for example while a command runs.
 export interface VisualChange {

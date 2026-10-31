@@ -1,6 +1,9 @@
 import { promises as fs } from 'fs'
 import { DatabaseSync } from 'node:sqlite'
 import type { TableChange, TableRow } from '../../shared/types'
+import { databaseFor } from '../../shared/databases'
+
+export { databaseFor }
 
 // Limits that keep reading a database quick and a card light.
 export const MAX_DB_BYTES = 20_000_000
@@ -9,23 +12,17 @@ export const MAX_TABLES = 30
 export const MAX_ROWS_READ = 2000
 export const MAX_SHOWN_ROWS = 50
 
-const DB_EXTENSIONS = /\.(db|sqlite|sqlite3|db3)$/i
-// SQLite keeps recent writes in these files next to the database until it folds them in.
-const SIDE_FILES = /-(wal|shm|journal)$/
 const SQLITE_HEADER = 'SQLite format 3\0'
 
 export interface TableSnapshot {
   columns: string[]
+  types: string[]
+  // The CREATE TABLE statement as SQLite keeps it.
+  sql: string
   // Row key (rowid, or the whole row for tables without one) → cells.
   rows: Map<string, (string | null)[]>
 }
 export type DbSnapshot = Map<string, TableSnapshot>
-
-// The database a changed path belongs to, if any.
-export function databaseFor(path: string): string | null {
-  const base = path.replace(SIDE_FILES, '')
-  return DB_EXTENSIONS.test(base) ? base : null
-}
 
 function cell(v: unknown): string | null {
   if (v === null || v === undefined) return null
@@ -54,10 +51,13 @@ async function isSqliteFile(path: string): Promise<boolean> {
   }
 }
 
-function readTable(db: DatabaseSync, table: string): TableSnapshot {
-  const columns = (
-    db.prepare(`PRAGMA table_info(${quote(table)})`).all() as { name: string }[]
-  ).map((c) => c.name)
+function readTable(db: DatabaseSync, table: string, sql: string): TableSnapshot {
+  const info = db.prepare(`PRAGMA table_info(${quote(table)})`).all() as {
+    name: string
+    type: string
+  }[]
+  const columns = info.map((c) => c.name)
+  const types = info.map((c) => (c.type ?? '').toLowerCase())
   const rows = new Map<string, (string | null)[]>()
   const toCells = (r: Record<string, unknown>): (string | null)[] => columns.map((c) => cell(r[c]))
   try {
@@ -72,7 +72,7 @@ function readTable(db: DatabaseSync, table: string): TableSnapshot {
       .all() as Record<string, unknown>[]
     for (const r of result) rows.set(JSON.stringify(toCells(r)), toCells(r))
   }
-  return { columns, rows }
+  return { columns, types, sql, rows }
 }
 
 // Reads a database without ever writing to it; null when it is missing, too big or not SQLite.
@@ -84,12 +84,12 @@ export async function readDatabase(absPath: string): Promise<DbSnapshot | null> 
     const tables = (
       db
         .prepare(
-          "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY rowid"
+          "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY rowid"
         )
-        .all() as { name: string }[]
+        .all() as { name: string; sql: string | null }[]
     ).slice(0, MAX_TABLES)
     const snapshot: DbSnapshot = new Map()
-    for (const { name } of tables) snapshot.set(name, readTable(db, name))
+    for (const { name, sql } of tables) snapshot.set(name, readTable(db, name, sql ?? ''))
     return snapshot
   } catch {
     return null
@@ -102,16 +102,36 @@ function sameColumns(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((v, i) => v === b[i])
 }
 
+function schemaOf(
+  table: string,
+  status: TableChange['status'],
+  current: TableSnapshot,
+  newColumns: string[]
+): string | null {
+  if (status === 'created') return current.sql || null
+  if (status === 'deleted') return `DROP TABLE ${table}`
+  if (newColumns.length === 0) return null
+  return newColumns
+    .map((c) => {
+      const type = current.types[current.columns.indexOf(c)]
+      return `ALTER TABLE ${table} ADD COLUMN ${c}${type ? ` ${type.toUpperCase()}` : ''}`
+    })
+    .join('; ')
+}
+
 function diffTable(
   database: string,
   table: string,
   before: TableSnapshot | undefined,
   after: TableSnapshot | undefined
 ): TableChange | null {
-  const columns = after?.columns ?? before?.columns ?? []
+  const current = after ?? before
+  if (!current) return null
   const status = !before ? 'created' : !after ? 'deleted' : 'modified'
+  const { columns, types } = current
   const oldColumns = before?.columns ?? []
   const newColumns = before && after ? columns.filter((c) => !oldColumns.includes(c)) : []
+  const newIndexes = newColumns.map((c) => columns.indexOf(c))
   // A row from before, laid out in the columns of now.
   const realign = (cells: (string | null)[]): (string | null)[] =>
     columns.map((c) => {
@@ -123,33 +143,51 @@ function diffTable(
   for (const [key, cells] of after?.rows ?? []) {
     const old = before?.rows.get(key)
     if (!old) {
-      rows.push({ kind: 'added', cells, changedCells: [] })
+      rows.push({ key, kind: 'added', cells, changedCells: [], filledCells: [] })
       continue
     }
     const changedCells = columns.flatMap((c, i) => {
       const j = oldColumns.indexOf(c)
       return j >= 0 && old[j] !== cells[i] ? [i] : []
     })
-    if (changedCells.length > 0) rows.push({ kind: 'changed', cells, changedCells })
+    const filledCells = newIndexes.filter((i) => cells[i] !== null)
+    if (changedCells.length > 0) {
+      rows.push({ key, kind: 'changed', cells, changedCells, filledCells })
+    } else if (newColumns.length > 0) {
+      // Every row shows how the new column fills in, also before it has a value.
+      rows.push({ key, kind: 'same', cells, changedCells: [], filledCells })
+    }
   }
   for (const [key, cells] of before?.rows ?? []) {
-    if (!after?.rows.has(key))
-      rows.push({ kind: 'removed', cells: realign(cells), changedCells: [] })
+    if (!after?.rows.has(key)) {
+      rows.push({ key, kind: 'removed', cells: realign(cells), changedCells: [], filledCells: [] })
+    }
   }
 
-  if (status === 'modified' && rows.length === 0 && sameColumns(oldColumns, columns)) return null
   const count = (kind: TableRow['kind']): number => rows.filter((r) => r.kind === kind).length
+  const [added, changed, removed] = [count('added'), count('changed'), count('removed')]
+  if (
+    status === 'modified' &&
+    added + changed + removed === 0 &&
+    newColumns.length === 0 &&
+    sameColumns(oldColumns, columns)
+  ) {
+    return null
+  }
   return {
     type: 'table',
     database,
     table,
     status,
     columns,
+    types,
     newColumns,
+    schema: schemaOf(table, status, current, newColumns),
     rows: rows.slice(0, MAX_SHOWN_ROWS),
-    added: count('added'),
-    changed: count('changed'),
-    removed: count('removed'),
+    added,
+    changed,
+    removed,
+    filled: rows.filter((r) => r.filledCells.length > 0).length,
     moreRows: Math.max(0, rows.length - MAX_SHOWN_ROWS),
     totalRows: after?.rows.size ?? 0
   }

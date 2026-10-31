@@ -39,6 +39,8 @@ describe('readDatabase', () => {
     const snap = (await readDatabase(db('shop.db', KLANTEN)))!
     const klanten = snap.get('klanten')!
     expect(klanten.columns).toEqual(['id', 'voornaam', 'stad'])
+    expect(klanten.types).toEqual(['integer', 'text', 'text'])
+    expect(klanten.sql).toMatch(/^CREATE TABLE klanten/)
     expect([...klanten.rows.values()]).toEqual([
       ['1', 'Emma', 'Hasselt'],
       ['2', 'Lucas', 'Antwerpen']
@@ -97,9 +99,23 @@ describe('tableChanges', () => {
       moreRows: 0
     })
     expect(c.rows).toEqual([
-      { kind: 'added', cells: ['1', 'Emma', 'Hasselt'], changedCells: [] },
-      { kind: 'added', cells: ['2', 'Lucas', 'Antwerpen'], changedCells: [] }
+      {
+        key: '1',
+        kind: 'added',
+        cells: ['1', 'Emma', 'Hasselt'],
+        changedCells: [],
+        filledCells: []
+      },
+      {
+        key: '2',
+        kind: 'added',
+        cells: ['2', 'Lucas', 'Antwerpen'],
+        changedCells: [],
+        filledCells: []
+      }
     ])
+    expect(c.schema).toMatch(/^CREATE TABLE klanten \(id INTEGER PRIMARY KEY/)
+    expect(c.types).toEqual(['integer', 'text', 'text'])
   })
 
   it('finds added, changed and removed rows and new columns', async () => {
@@ -118,14 +134,31 @@ describe('tableChanges', () => {
     expect(c).toMatchObject({
       status: 'modified',
       newColumns: ['email'],
+      schema: 'ALTER TABLE klanten ADD COLUMN email TEXT',
       added: 1,
       changed: 1,
       removed: 1
     })
-    expect(c.rows).toEqual([
-      { kind: 'changed', cells: ['2', 'Lucas', 'Brussel', null], changedCells: [2] },
-      { kind: 'added', cells: ['4', 'Noah', 'Gent', 'noah@example.com'], changedCells: [] },
-      { kind: 'removed', cells: ['1', 'Emma', 'Hasselt', null], changedCells: [] }
+    expect(c.rows.map((r) => [r.kind, r.cells, r.changedCells, r.filledCells])).toEqual([
+      ['changed', ['2', 'Lucas', 'Brussel', null], [2], []],
+      ['same', ['3', 'Sofie', 'Gent', null], [], []],
+      ['added', ['4', 'Noah', 'Gent', 'noah@example.com'], [], []],
+      ['removed', ['1', 'Emma', 'Hasselt', null], [], []]
+    ])
+  })
+
+  it('a new column shows every row, with the cells that got a value marked as filled', async () => {
+    const before = await snap(KLANTEN)
+    const after = await snap(
+      KLANTEN +
+        `ALTER TABLE klanten ADD COLUMN email TEXT;
+         UPDATE klanten SET email = 'emma@example.com' WHERE voornaam = 'Emma';`
+    )
+    const [c] = tableChanges('shop.db', before, after)
+    expect(c).toMatchObject({ newColumns: ['email'], filled: 1, added: 0, changed: 0 })
+    expect(c.rows.map((r) => [r.kind, r.cells[3], r.filledCells])).toEqual([
+      ['same', 'emma@example.com', [3]],
+      ['same', null, []]
     ])
   })
 
@@ -135,7 +168,7 @@ describe('tableChanges', () => {
       await snap(KLANTEN),
       await snap('CREATE TABLE other (x);')
     ).filter((t) => t.table === 'klanten')
-    expect(c).toMatchObject({ status: 'deleted', removed: 2 })
+    expect(c).toMatchObject({ status: 'deleted', removed: 2, schema: 'DROP TABLE klanten' })
   })
 
   it('reports nothing when the data is the same', async () => {

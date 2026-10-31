@@ -130,7 +130,15 @@ export class AgentSession {
   private todoCount = 0
 
   constructor(private deps: AgentSessionDeps) {
-    this.observer = new ToolObserver({ projectDir: deps.projectDir, newId: deps.newId })
+    this.observer = new ToolObserver({
+      projectDir: deps.projectDir,
+      newId: deps.newId,
+      // Updates from a command that is still running belong to the turn in progress.
+      onProgress: (change) => {
+        const turn = this.turn
+        if (turn && !turn.ended) this.emit(turn, { kind: 'change', change })
+      }
+    })
   }
 
   get running(): boolean {
@@ -187,6 +195,7 @@ export class AgentSession {
   close(): void {
     const turn = this.turn
     if (this.proc) this.shutdown(this.proc)
+    this.observer.dispose()
     if (turn) this.endTurn(turn, 'stopped', null)
   }
 

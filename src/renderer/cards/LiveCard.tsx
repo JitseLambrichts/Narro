@@ -11,7 +11,9 @@ import { hasFileBody } from './fileBody'
 import { ChangeStats, FilesGroupCard } from './FilesGroupCard'
 import { CommandCode, CommandSummary } from './CommandCard'
 import { ActivityCard } from './ActivityCard'
-import { TableCard, TableStats } from './TableCard'
+import { Check } from './TableCard'
+import { DatabaseCard } from './DatabaseCard'
+import { databaseFor } from '../../shared/databases'
 
 // What a card shows without any code: the visual part.
 function hasSummary(card: CardModel): boolean {
@@ -20,11 +22,9 @@ function hasSummary(card: CardModel): boolean {
     case 'file':
       return false
     case 'command':
-      return card.change.changedFiles.length > 0
+      return card.change.changedFiles.length > 0 || card.change.tables.length > 0
     case 'activity':
       return card.change.items.length > 1
-    case 'table':
-      return true
   }
 }
 
@@ -45,12 +45,21 @@ function Summary(p: { card: CardModel }): React.JSX.Element | null {
   const { card } = p
   if (card.files !== null) return <FilesGroupCard files={card.files} working={card.working} />
   switch (card.change.type) {
-    case 'command':
-      return card.change.changedFiles.length > 0 ? <CommandSummary change={card.change} /> : null
+    case 'command': {
+      const { change } = card
+      // Database files are shown as their tables, not as a file name.
+      const files = change.changedFiles.filter((f) => databaseFor(f) === null)
+      return (
+        <>
+          {change.tables.length > 0 && (
+            <DatabaseCard tables={change.tables} working={card.status === 'working'} />
+          )}
+          {files.length > 0 && <CommandSummary change={{ ...change, changedFiles: files }} />}
+        </>
+      )
+    }
     case 'activity':
       return <ActivityCard change={card.change} />
-    case 'table':
-      return <TableCard change={card.change} />
     default:
       return null
   }
@@ -85,9 +94,16 @@ function Stats(p: { card: CardModel }): React.JSX.Element | null {
     return <ChangeStats added={change.added} removed={change.removed} />
   }
   if (change.type === 'command' && change.durationMs !== null) {
+    if (change.tables.length > 0 && card.status === 'done') {
+      return (
+        <span className="card-time applied">
+          <Check />
+          {t.appliedIn(seconds(change.durationMs))}
+        </span>
+      )
+    }
     return <span className="card-time">{seconds(change.durationMs)}</span>
   }
-  if (change.type === 'table') return <TableStats change={change} />
   return null
 }
 

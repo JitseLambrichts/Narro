@@ -43,9 +43,12 @@ export const t = {
   allowed: 'Allowed',
   tooLargeNote: 'This file is too large or not text, so only the change is listed.',
   moreLines: (n: number) => `…and ${n} more lines`,
-  moreRows: (n: number) => `…and ${n} more changed ${n === 1 ? 'row' : 'rows'}`,
-  tableMeta: (database: string, total: number) =>
-    `${database} · ${total} ${total === 1 ? 'row' : 'rows'}`,
+  moreRows: (n: number) => `…and ${n} more ${n === 1 ? 'row' : 'rows'}`,
+  tableMeta: (database: string, total: number) => `${database} · ${rows(total)}`,
+  appliedIn: (time: string) => `Applied in ${time}`,
+  schema: 'Schema',
+  nullValue: 'NULL',
+  tables: 'Tables',
   thinking: 'Thinking',
   workedFor: (time: string) => `Worked for ${time}`,
   running: (time: string) => `Running ${time}`,
@@ -69,13 +72,18 @@ export const t = {
     stepFailed: (description: string) => `${description} failed`,
     activityMore: (first: string, more: number) => `${first} and ${more} more`,
     lookedAround: 'Looked around',
-    createdTable: (table: string) => `Created table ${table}`,
-    deletedTable: (table: string) => `Deleted table ${table}`,
-    addedRows: (n: number, table: string) => `Added ${rows(n)} to ${table}`,
-    removedRows: (n: number, table: string) => `Removed ${rows(n)} from ${table}`,
-    changedRows: (n: number, table: string) => `Changed ${rows(n)} in ${table}`,
-    addedColumns: (n: number, table: string) =>
-      `Added ${n === 1 ? 'a column' : `${n} columns`} to ${table}`,
-    updatedTable: (table: string) => `Updated table ${table}`
+    updatedDatabase: 'Updated the database'
+  },
+
+  table: {
+    created: (table: string, total: number) => `Created ${table} with ${rows(total)}`,
+    deleted: (table: string) => `Deleted ${table}`,
+    addedColumns: (names: string[]) =>
+      `Added ${names.length === 1 ? 'column' : 'columns'} ${names.join(', ')}`,
+    filledIn: (filled: number, total: number) => `filled in ${filled} of ${total}`,
+    rowsAdded: (n: number) => `${rows(n)} added`,
+    rowsChanged: (n: number) => `${rows(n)} changed`,
+    rowsRemoved: (n: number) => `${rows(n)} removed`,
+    unchanged: (table: string) => `Changed the layout of ${table}`
   }
 }

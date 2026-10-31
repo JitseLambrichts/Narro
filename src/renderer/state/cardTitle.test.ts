@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Change, CommandChange, FileChange, TableChange } from '../../shared/types'
 import type { CardModel } from './conversation'
-import { cardTitle } from './cardTitle'
+import { cardTitle, tableSummary } from './cardTitle'
 
 function file(path: string, status: FileChange['status'], added = 0, removed = 0): FileChange {
   return { type: 'file', path, status, lines: [], added, removed, tooLarge: false }
@@ -14,7 +14,8 @@ function command(description: string | null): CommandChange {
     status: 'running',
     durationMs: null,
     changedFiles: [],
-    outputTail: []
+    outputTail: [],
+    tables: []
   }
 }
 function card(
@@ -42,10 +43,13 @@ function table(over: Partial<TableChange>): TableChange {
     status: 'modified',
     columns: ['naam'],
     newColumns: [],
+    types: ['text'],
+    schema: null,
     rows: [],
     added: 0,
     changed: 0,
     removed: 0,
+    filled: 0,
     moreRows: 0,
     totalRows: 4,
     ...over
@@ -75,13 +79,20 @@ describe('cardTitle', () => {
       card({ type: 'activity', items: ['Read a.ts', 'Read b.ts', 'Read c.ts'] }, 'done'),
       'Read a.ts and 2 more'
     ],
-    [card(table({ status: 'created', added: 4 }), 'done'), 'Created table klanten'],
-    [card(table({ status: 'deleted', removed: 4 }), 'done'), 'Deleted table klanten'],
-    [card(table({ added: 1 }), 'done'), 'Added 1 row to klanten'],
-    [card(table({ added: 3 }), 'done'), 'Added 3 rows to klanten'],
-    [card(table({ removed: 2 }), 'done'), 'Removed 2 rows from klanten'],
-    [card(table({ changed: 1 }), 'done'), 'Changed 1 row in klanten'],
-    [card(table({ newColumns: ['email'] }), 'done'), 'Added a column to klanten'],
-    [card(table({ added: 1, changed: 1 }), 'done'), 'Updated table klanten']
+    [card({ ...command(null), tables: [table({ added: 1 })] }, 'done'), 'Updated the database'],
+    [card({ ...command('Import'), tables: [table({ added: 1 })] }, 'done'), 'Import']
   ])('%#: %s', (c, title) => expect(cardTitle(c)).toBe(title))
+})
+
+describe('tableSummary', () => {
+  it.each([
+    [table({ status: 'created', added: 4 }), 'Created klanten with 4 rows'],
+    [table({ status: 'deleted', removed: 4 }), 'Deleted klanten'],
+    [table({ added: 1 }), '1 row added'],
+    [table({ added: 2, changed: 1, removed: 3 }), '2 rows added · 1 row changed · 3 rows removed'],
+    [table({ newColumns: ['email'] }), 'Added column email'],
+    [table({ newColumns: ['email'], filled: 3 }), 'Added column email, filled in 3 of 4'],
+    [table({ newColumns: ['a', 'b'] }), 'Added columns a, b'],
+    [table({}), 'Changed the layout of klanten']
+  ])('%#: %s', (change, text) => expect(tableSummary(change)).toBe(text))
 })
