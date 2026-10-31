@@ -13,6 +13,9 @@ function turn(over: Partial<Turn>): Turn {
     status: 'done',
     error: null,
     collapsed: false,
+    startedAt: 0,
+    endedAt: 5000,
+    thinking: '',
     ...over
   }
 }

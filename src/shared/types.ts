@@ -58,16 +58,18 @@ export interface TableChange {
 
 export type Change = FileChange | CommandChange | ActivityChange | TableChange
 
+// 'progress' updates a card that is still working, for example while a command runs.
 export interface VisualChange {
   id: string
   toolUseId: string
   targetKey: string
-  phase: 'start' | 'done' | 'failed'
+  phase: 'start' | 'progress' | 'done' | 'failed'
   change: Change
 }
 
 export type AppEvent =
   | { kind: 'text'; turnId: string; at: number; text: string }
+  | { kind: 'thinking'; turnId: string; at: number; text: string }
   | { kind: 'change'; turnId: string; at: number; change: VisualChange }
   | {
       kind: 'task'

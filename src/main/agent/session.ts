@@ -234,12 +234,11 @@ export class AgentSession {
     if (m.type === 'stream_event' && m.parent_tool_use_id == null) {
       const event = rec(m.event)
       const delta = rec(event.delta)
-      if (
-        event.type === 'content_block_delta' &&
-        delta.type === 'text_delta' &&
-        typeof delta.text === 'string'
-      ) {
+      if (event.type !== 'content_block_delta') return
+      if (delta.type === 'text_delta' && typeof delta.text === 'string') {
         this.emit(turn, { kind: 'text', text: delta.text })
+      } else if (delta.type === 'thinking_delta' && typeof delta.thinking === 'string') {
+        this.emit(turn, { kind: 'thinking', text: delta.thinking })
       }
     } else if (m.type === 'assistant' && m.error === 'authentication_failed') {
       turn.authFailed = true

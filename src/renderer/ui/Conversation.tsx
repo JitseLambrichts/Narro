@@ -6,6 +6,7 @@ import { t } from '../i18n/en'
 import { isNearBottom } from './scroll'
 import { UserBubble } from './UserBubble'
 import { AgentText } from './AgentText'
+import { ThinkingLine } from './ThinkingLine'
 import { LiveCard } from '../cards/LiveCard'
 import { PermissionCard } from '../cards/PermissionCard'
 import { TaskChecklist } from '../cards/TaskChecklist'
@@ -58,6 +59,7 @@ function TurnView(p: { turn: Turn; m: MotionSet } & Omit<Props, 'state'>): React
   return (
     <div className="turn" data-testid="turn">
       <UserBubble text={turn.userText} />
+      <ThinkingLine turn={turn} />
       <TaskChecklist tasks={turn.tasks} />
       <AnimatePresence initial={false}>
         {turn.items.map((item) => (

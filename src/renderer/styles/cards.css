@@ -232,7 +232,7 @@
   overflow-wrap: anywhere;
 }
 
-.command-time {
+.card-time {
   flex: none;
   color: var(--faint);
   font-size: 12px;
@@ -454,5 +454,34 @@
   .db-table tbody tr,
   .db-table td[data-changed]::after {
     animation: none;
+  }
+}
+
+.card-time.running {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.spinner {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line2);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
   }
 }

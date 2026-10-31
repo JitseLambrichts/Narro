@@ -46,7 +46,9 @@ export const t = {
   moreRows: (n: number) => `…and ${n} more changed ${n === 1 ? 'row' : 'rows'}`,
   tableMeta: (database: string, total: number) =>
     `${database} · ${total} ${total === 1 ? 'row' : 'rows'}`,
-  seconds: (ms: number) => `${(ms / 1000).toFixed(1)} s`,
+  thinking: 'Thinking',
+  workedFor: (time: string) => `Worked for ${time}`,
+  running: (time: string) => `Running ${time}`,
   changedFiles: 'Changed files',
   tasks: 'Tasks',
 

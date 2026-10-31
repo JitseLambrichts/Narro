@@ -167,6 +167,27 @@ describe('AgentSession', () => {
     expect(s.running).toBe(false)
   })
 
+  it('passes on what Claude thinks, apart from what it says', async () => {
+    const s = session(async function* () {
+      yield {
+        type: 'stream_event',
+        event: {
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'thinking_delta', thinking: 'Check the schema first.' }
+        },
+        parent_tool_use_id: null
+      }
+      yield text('Done.')
+      yield success
+    })
+    await s.send('x').done
+    expect(events.slice(0, 2)).toEqual([
+      expect.objectContaining({ kind: 'thinking', text: 'Check the schema first.' }),
+      expect.objectContaining({ kind: 'text', text: 'Done.' })
+    ])
+  })
+
   it('ignores text streamed by sub-agents', async () => {
     const s = session(async function* () {
       yield { ...(text('inner') as object), parent_tool_use_id: 'tu9' }

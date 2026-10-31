@@ -67,7 +67,7 @@ type Step = AppEvent | ['user-sent', string] | Action
 function run(...steps: Step[]): ConversationState {
   return steps.reduce<ConversationState>((s, step) => {
     if (Array.isArray(step))
-      return reduce(s, { type: 'user-sent', turnId: step[1], text: `msg ${step[1]}` })
+      return reduce(s, { type: 'user-sent', turnId: step[1], text: `msg ${step[1]}`, at: 100 })
     if ('type' in step) return reduce(s, step)
     return reduce(s, { type: 'event', event: step })
   }, initialState)
@@ -91,7 +91,7 @@ describe('conversation reducer', () => {
     const id = cards(s)[0].id
     s = reduce(s, { type: 'toggle-card', turnId: T, cardId: id })
     expect(cards(s)[0].expanded).toBe(true)
-    s = reduce(s, { type: 'user-sent', turnId: 't2', text: 'next' })
+    s = reduce(s, { type: 'user-sent', turnId: 't2', text: 'next', at: 0 })
     expect(cards(s)[0].expanded).toBe(false)
   })
 
@@ -244,6 +244,41 @@ describe('conversation reducer', () => {
     expect(sFailed.turns[0]).toMatchObject({ status: 'failed', error: 'Boom' })
   })
 
+  it('keeps when a turn started and ended, and what Claude thought', () => {
+    const s = run(
+      ['user-sent', T],
+      { kind: 'thinking', turnId: T, at: 120, text: 'Let me ' },
+      { kind: 'thinking', turnId: T, at: 130, text: 'check the table.' },
+      { kind: 'turn-end', turnId: T, at: 5100, outcome: 'done', error: null }
+    )
+    expect(s.turns[0]).toMatchObject({
+      startedAt: 100,
+      endedAt: 5100,
+      thinking: 'Let me check the table.'
+    })
+  })
+
+  it('progress updates a working card and keeps it working until it is done', () => {
+    const running: Change = { ...cmd, description: 'Migrate' } as Change
+    const s1 = run(
+      ['user-sent', T],
+      change('start', 'command:m', running, 0),
+      change('progress', 'command:m', { ...running, changedFiles: ['shop.db'] } as Change, 700)
+    )
+    expect(cards(s1)).toHaveLength(1)
+    expect(cards(s1)[0]).toMatchObject({
+      status: 'working',
+      startedAt: 0,
+      lastAt: 700,
+      change: { changedFiles: ['shop.db'] }
+    })
+    const s2 = reduce(s1, {
+      type: 'event',
+      event: change('done', 'command:m', { ...running, status: 'done' } as Change, 900)
+    })
+    expect(cards(s2)[0].status).toBe('done')
+  })
+
   it('ignores events for unknown turns', () => {
     const s = run(['user-sent', T], ev.turnEnd('nope'), ev.text('x', 'nope'))
     expect(s.turns).toHaveLength(1)
@@ -254,7 +289,7 @@ describe('conversation reducer', () => {
     const s1 = run(['user-sent', T], change('start', 'file:a', fileCh('a')))
     const frozen = JSON.stringify(s1)
     reduce(s1, { type: 'event', event: change('done', 'file:a', fileCh('a')) })
-    reduce(s1, { type: 'user-sent', turnId: 't2', text: 'x' })
+    reduce(s1, { type: 'user-sent', turnId: 't2', text: 'x', at: 0 })
     expect(JSON.stringify(s1)).toBe(frozen)
   })
 })

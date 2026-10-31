@@ -7,6 +7,7 @@ export interface CardModel {
   change: Change
   // Set for a group card ("Updated N files"): the newest change per file.
   files: FileChange[] | null
+  startedAt: number
   lastAt: number
   expanded: boolean
   // Target keys of the tool calls in this card that are still running.
@@ -40,6 +41,11 @@ export interface Turn {
   status: 'running' | 'done' | 'failed' | 'stopped'
   error: string | null
   collapsed: boolean
+  // When the message was sent and when the turn ended, in ms since the epoch.
+  startedAt: number
+  endedAt: number | null
+  // What Claude thought, when it shares that.
+  thinking: string
 }
 
 export interface ConversationState {
@@ -47,7 +53,7 @@ export interface ConversationState {
 }
 
 export type Action =
-  | { type: 'user-sent'; turnId: string; text: string }
+  | { type: 'user-sent'; turnId: string; text: string; at: number }
   | { type: 'event'; event: AppEvent }
   | { type: 'toggle-card'; turnId: string; cardId: string }
   | { type: 'permission-decided'; requestId: string; allow: boolean }
@@ -67,6 +73,7 @@ function cardStatus(
 }
 
 function trackWorking(working: string[], key: string, phase: VisualChange['phase']): string[] {
+  if (phase === 'progress') return working.includes(key) ? working : [...working, key]
   const rest = working.filter((k) => k !== key)
   return phase === 'start' ? [...rest, key] : rest
 }
@@ -108,12 +115,18 @@ function newCard(vc: VisualChange, at: number): CardModel {
   return {
     id: vc.id,
     targetKey: vc.targetKey,
-    status: vc.phase === 'start' ? 'working' : vc.phase === 'done' ? 'done' : 'failed',
+    status:
+      vc.phase === 'start' || vc.phase === 'progress'
+        ? 'working'
+        : vc.phase === 'done'
+          ? 'done'
+          : 'failed',
     change: vc.change,
     files: null,
+    startedAt: at,
     lastAt: at,
     expanded: false,
-    working: vc.phase === 'start' ? [vc.targetKey] : []
+    working: vc.phase === 'start' || vc.phase === 'progress' ? [vc.targetKey] : []
   }
 }
 
@@ -208,13 +221,15 @@ function endTurn(turn: Turn, e: Extract<AppEvent, { kind: 'turn-end' }>): Turn {
       ? { ...it, card: { ...it.card, status: finished, working: [] } }
       : it
   )
-  return { ...turn, items, status: e.outcome, error: e.error }
+  return { ...turn, items, status: e.outcome, error: e.error, endedAt: e.at }
 }
 
 function applyEvent(turn: Turn, e: AppEvent): Turn {
   switch (e.kind) {
     case 'text':
       return addText(turn, e.text)
+    case 'thinking':
+      return { ...turn, thinking: turn.thinking + e.text }
     case 'change':
       return addChange(turn, e.change, e.at)
     case 'task':
@@ -256,7 +271,10 @@ export function reduce(state: ConversationState, action: Action): ConversationSt
         tasks: [],
         status: 'running',
         error: null,
-        collapsed: false
+        collapsed: false,
+        startedAt: action.at,
+        endedAt: null,
+        thinking: ''
       }
       return { turns: [...state.turns.map(collapse), turn] }
     }

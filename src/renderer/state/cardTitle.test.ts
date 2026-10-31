@@ -22,7 +22,17 @@ function card(
   status: CardModel['status'],
   files: FileChange[] | null = null
 ): CardModel {
-  return { id: 'c', targetKey: 'k', status, change, files, lastAt: 0, expanded: false, working: [] }
+  return {
+    id: 'c',
+    targetKey: 'k',
+    status,
+    change,
+    files,
+    startedAt: 0,
+    lastAt: 0,
+    expanded: false,
+    working: []
+  }
 }
 function table(over: Partial<TableChange>): TableChange {
   return {

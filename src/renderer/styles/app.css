@@ -275,3 +275,85 @@
   gap: 8px;
   margin-top: 10px;
 }
+
+/* "Thinking 3s" → "Worked for 12s" */
+.thinking {
+  margin-bottom: -4px;
+}
+
+.thinking-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.thinking-line:disabled {
+  cursor: default;
+}
+
+.chevron {
+  display: inline-block;
+  width: 10px;
+  color: var(--faint);
+  transition: transform 0.2s ease;
+}
+
+.chevron.hidden {
+  visibility: hidden;
+}
+
+.thinking-line[aria-expanded='true'] .chevron {
+  transform: rotate(90deg);
+}
+
+.thinking-time {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A soft light that runs through the word while Claude thinks. */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 0%,
+    var(--muted) 35%,
+    var(--line2) 50%,
+    var(--muted) 65%,
+    var(--muted) 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.8s linear infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+.thinking-text {
+  margin: 6px 0 0 16px;
+  padding-left: 12px;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+    color: var(--muted);
+  }
+}

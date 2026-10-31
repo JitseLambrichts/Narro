@@ -4,6 +4,8 @@ import type { CardModel } from '../state/conversation'
 import { cardTitle } from '../state/cardTitle'
 import { motionFor } from '../motion/tokens'
 import { t } from '../i18n/en'
+import { seconds } from '../ui/format'
+import { useNow } from '../ui/useNow'
 import { FileCard } from './FileCard'
 import { hasFileBody } from './fileBody'
 import { ChangeStats, FilesGroupCard } from './FilesGroupCard'
@@ -61,15 +63,29 @@ function Code(p: { card: CardModel }): React.JSX.Element | null {
   return null
 }
 
+// A running command counts up, so you can see it is still going.
+function RunningTime(p: { startedAt: number }): React.JSX.Element {
+  const now = useNow(true)
+  return (
+    <span className="card-time running">
+      <span className="spinner" aria-hidden="true" />
+      {t.running(seconds(now - p.startedAt))}
+    </span>
+  )
+}
+
 function Stats(p: { card: CardModel }): React.JSX.Element | null {
   const { card } = p
+  if (card.status === 'working' && card.change.type === 'command') {
+    return <RunningTime startedAt={card.startedAt} />
+  }
   if (card.files !== null || card.status === 'working') return null
   const { change } = card
   if (change.type === 'file' && !change.tooLarge) {
     return <ChangeStats added={change.added} removed={change.removed} />
   }
   if (change.type === 'command' && change.durationMs !== null) {
-    return <span className="command-time">{t.seconds(change.durationMs)}</span>
+    return <span className="card-time">{seconds(change.durationMs)}</span>
   }
   if (change.type === 'table') return <TableStats change={change} />
   return null

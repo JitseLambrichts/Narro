@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { FileChange, TableChange } from '../../shared/types'
+import type { CommandChange, FileChange, TableChange } from '../../shared/types'
 import type { CardModel, TaskItem } from '../state/conversation'
 import { LiveCard } from './LiveCard'
 import { TaskChecklist } from './TaskChecklist'
@@ -26,6 +26,7 @@ const doneFileCard: CardModel = {
   status: 'done',
   change: notes,
   files: null,
+  startedAt: 0,
   lastAt: 0,
   expanded: false,
   working: []
@@ -171,13 +172,30 @@ describe('LiveCard', () => {
   it('a command card shows its time and changed files, and the command only on request', async () => {
     render(<LiveCard card={command} collapsed={false} onToggle={vi.fn()} />)
     expect(screen.getByText('Generate the report')).toBeVisible()
-    expect(screen.getByText('1.2 s')).toBeVisible()
+    expect(screen.getByText('1.2s')).toBeVisible()
     expect(screen.getByText('out.txt')).toBeVisible()
     expect(screen.queryByText('node gen.js')).toBeNull()
     expect(screen.queryByText('ok')).toBeNull()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Show code' }))
     expect(screen.getByText('node gen.js')).toBeVisible()
     expect(screen.getByText('ok')).toBeVisible()
+  })
+
+  it('a running command counts up its time', () => {
+    render(
+      <LiveCard
+        card={{
+          ...command,
+          status: 'working',
+          working: ['command:u1'],
+          startedAt: Date.now() - 2700,
+          change: { ...command.change, status: 'running', durationMs: null } as CommandChange
+        }}
+        collapsed={false}
+        onToggle={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/^Running \d+\.\ds$/)).toBeVisible()
   })
 
   it('ActivityCard lists what the agent looked at', () => {
